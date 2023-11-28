@@ -88,6 +88,13 @@ macro(USE_SPDK)
                     WORKING_DIRECTORY ${THIRDPARTY}/spdk)
 	execute_process(COMMAND make -j 4
                     WORKING_DIRECTORY ${THIRDPARTY}/spdk)
+	# message("Begin to compile DPDK")
+	# execute_process(COMMAND git submodule update --init
+    #                 WORKING_DIRECTORY ${THIRDPARTY}/spdk)
+	# execute_process(COMMAND ./configure --disable-unit-tests --disable-tests
+    #                 WORKING_DIRECTORY ${THIRDPARTY}/spdk)
+	# execute_process(COMMAND make -j 4
+    #                 WORKING_DIRECTORY ${THIRDPARTY}/spdk)
 endmacro(USE_SPDK)
 USE_SPDK()
 

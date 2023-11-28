@@ -57,10 +57,11 @@ PureFlash can be build with cmake tools.
   # cd PureFlash;
   # export PUREFLASH_HOME=`pwd`
   # mkdir build_deb; cd build_deb
-  # cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja ..
+  # cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=`which ninja` ..
+  #// cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja ..
 
 The above command will generate scripts for Debug build. To do a release build, run command:
-  # cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja ..
+  # cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=`which ninja` ..
 
 4) run ninja to do build
   $ ninja

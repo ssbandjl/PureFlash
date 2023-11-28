@@ -1,0 +1,1615 @@
+https://github.com/ssbandjl/PureFlash.git
+git remote add upstream https://github.com/cocalele/PureFlash.git
+git fetch upstream
+git merge upstream/master
+git push origin master
+
+递归拉取子项目
+git submodule update --init --recursive
+
+灵感来源: netbric
+
+
+begin_cow
+int PfAioEngine::submit_io
+    submit_batch
+
+
+submit_cow_io
+
+
+
+int PfClientVolume::process_event
+
+
+
+全闪笔记:
+int init_server_buffer() ->  pthread_create(&tids[i], NULL, init_dispatcher_buffer, (void*)store_inst->dispatcher[i])
+void* init_dispatcher_buffer(void *ds)
+  init_buf_desc_pool(&disp->pool4k, LBA_SIZE, disp->iotaskpoolsize); -> int init_buf_desc_pool(struct qfa_buf_desc_pool* pool, int block_size, int block_count)
+    pool->data = memalign(block_size >= 4096 ? 4096 : block_size, ((size_t)block_size)*block_count); 内存对齐
+    memset(pool->data, 0, ((size_t)block_size)*block_count);
+    pool->msg_buf = malloc(sizeof(struct buf_desc)*block_count);
+  init_buf_desc_pool(&disp->pool512k, MAX_IO_NLBA * LBA_SIZE, disp->iotaskpoolsize);
+  qfa_init_task_pool(&disp->basic_task_pool, disp->iotaskpoolsize, server)
+  int rc = fsq_enqueue(&pool->free_list, msg); -> 入队, 固定大小队列, 环形队列 
+reg_server_buffer 注册服务端缓存区,内存池 -> int reg_server_buffer
+  reg_buf_desc_pool(&store_inst->dispatcher[i]->pool4k -> int reg_buf_desc_pool(struct qfa_buf_desc_pool* pool, struct ibv_pd* pd, int mr_index, int access_mode)
+  reg_buf_desc_pool(&store_inst->dispatcher[i]->pool512k
+  qfa_reg_task_pool(&store_inst->dispatcher[i]->basic_task_pool
+  qfa_set_io_task_context(&store_inst->dispatcher[i]->basic_task_pool, i)
+
+int reg_buf_desc_pool(struct qfa_buf_desc_pool* pool, struct ibv_pd* pd, int mr_index, int access_mode)
+  struct ibv_mr* mr = pool->mrs[mr_index] = ibv_reg_mr(pd, pool->data, ((size_t)pool->block_size)*pool->block_count, access_mode);
+  for (int i = 0; i < pool->block_count; i++)
+    pool->msg_buf[i].mrs[mr_index] = mr;
+
+配置文件:
+cat ./xb/config/store/store.conf|grep depth
+
+共享接收队列: srq
+初始化客户端连接
+init_rdma_client_connection -> int init_rdma_client_connection
+  rconnection->post_reply_recv = client_post_rdma_reply_recv
+    client_post_rdma_reply_recv -> post_srq_receive -> ibv_post_srq_recv
+
+on_connect_request
+	qp_attr.send_cq = dev_ctx->poller_ctx[cq_poller_index].cq;
+	qp_attr.recv_cq = dev_ctx->poller_ctx[cq_poller_index].cq;
+	qp_attr.qp_type = IBV_QPT_RC;
+	qp_attr.cap.max_send_wr = io_depth * 2;
+	qp_attr.cap.max_recv_wr = io_depth;
+	qp_attr.cap.max_send_sge = 1;
+	qp_attr.cap.max_recv_sge = 1;
+  rdma_create_qp -> 队列对属性
+
+
+普通接收队列
+客户端连接服务端后在服务端触发连接请求事件 case RDMA_CM_EVENT_CONNECT_REQUEST -> on_connect_request -> post_rdma_request_recv
+  post_receive
+    ibv_post_recv
+
+share mem
+alloc_attach_share_memory -> shmget
+
+
+libaio:
+
+io_task -> recv_queue, 
+
+核心: ./module
+
+root@ks0:~# qbd -h
+Package Version:       2.0.4-cb3daa5-191021144648-ubuntu1604
+Loaded Module Version: 2.0.4-cb3daa5-191021144648-ubuntu1604
+NeonSAN Static Library Version: 2.1.17-c7785f7
+Usage: qbd -m [<tcp|rdma>://]<pool/volume> [-c <config>]
+       qbd -u [<tcp|rdma>://]<pool/volume> [-c <config>]
+       qbd -r [<tcp|rdma>://]<pool/volume> [-c <config>]
+       qbd -l
+       qbd -M [-f <file>]
+       qbd -U [-f <file>]
+       qbd -s [<tcp|rdma>://]<pool/volume> [-c <config>] -t <read_bps|write_bps|read_iops|write_iops=num>
+       qbd -S [<tcp|rdma>://]<pool/volume> [-c <config>]
+       qbd -R [<tcp|rdma>://]<pool/volume> [-c <config>] -t <normal|error|discard>
+       qbd -i [<tcp|rdma>://]<pool/volume> [-c <config>]
+       qbd -z [<tcp|rdma>://]<pool/volume> [-c <config>] -k new_size
+       qbd -v
+       qbd -h
+
+For detailed Usage: man qbd
+
+man qdb
+qbd(8)                                                                               System Administration Command                                                                              qbd(8)
+
+NAME
+       qbd - NeonSAN Kernel Block Device Driver Administration Command.
+
+SYNOPSIS
+       qbd --map|-m [<tcp|rdma>://]<pool/volume> [--config|-c <config>]
+
+       qbd --unmap|-u [<tcp|rdma>://]<pool/volume> [--config|-c <config>]
+
+       qbd --remap|-r [<tcp|rdma>://]<pool/volume> [--config|-c <config>]
+
+       qbd --list|-l
+
+       qbd --mapall|-M [--file|-f <file>]
+
+       qbd --unmapall|-U [--file|-f <file>]
+
+       qbd --setthrottle|-s [<tcp|rdma>://]<pool/volume> [--config|-c <config>] --throttle|-t <read_bps|write_bps|read_iops|write_iops=num>
+
+       qbd --suspend|-S [<tcp|rdma>://]<pool/volume> [--config|-c <config>]
+
+       qbd --resume|-R [<tcp|rdma>://]<pool/volume> [--config|-c <config>] -t <normal|error|discard>
+
+       qbd --info|-i [<tcp|rdma>://]<pool/volume> [--config|-c <config>]
+
+       qbd --resize|-z [<tcp|rdma>://]<pool/volume> [--config|-c <config>] --size|-k new_size
+
+       qbd --version|-v
+
+       qbd --help|-h
+
+DESCRIPTION
+       qbd is used for map or unmap NeonSAN volumes 'pool/volume' with local '/dev/qbdX' devices, and unique device link will be generated with '/dev/qbd/pool/volume'
+
+Options
+       --map|-m [<tcp|rdma>://]<pool/volume> [--config|-c <config>]
+              Map NeonSAN volume 'pool/volume' to local '/dev/qbdX' device with default config file(/etc/neonsan/qbd.conf) or 'config' file through protocol tcp(default) or rdma.
+
+       --unmap|-u [<tcp|rdma>://]<pool/volume> [--config|-c <config>]
+              Unmap NeonSAN volume 'pool/volume' with default configure file(/etc/neonsan/qbd.conf) or 'config' file through protocol tcp(default) or rdma.
+
+       --remap|-r [<tcp|rdma>://]<pool/volume> [--config|-c <config>]
+              Remap  NeonSAN  volume  'pool/volume' with default configure file(/etc/neonsan/qbd.conf) or 'config' file through protocol tcp(default) or rdma. This option is used by qbd block device
+              driver when need remap. It is better not used by user on command line.
+
+       --list|-l
+              List mapped NeonSAN volumes.
+
+       --mapall|-M [--file|-f <file>]
+              Map all NeonSAN volumes defined in default config file(/etc/neonsan/map.conf) or 'file'.
+
+       --unmapall|-U [--file|-f <file>]
+              Unmap all NeonSAN volumes defined in default config file(/etc/neonsan/map.conf) or 'file'.
+
+       --setthrottle|-s [<tcp|rdma>://]<pool/volume> [--config|-c config] --throttle|-t <read_bps|write_bps|read_iops|write_iops=num>
+              Set volume throttle for read_bps, write_bps, read_iops, write_iops, it can be specified like read_bps=num1,write_bps=num2.
+
+       --suspend|-S[<tcp|rdma>://]<pool/volume> [--config|-c <config>]
+              Suspend NeonSAN volume 'pool/volume' with default configure file(/etc/neonsan/qbd.conf) or 'config' file through protocol tcp(default) or rdma. This option will block volume io,  don't
+              use it unless you known what you are doing.
+
+       --resume|-R[<tcp|rdma>://]<pool/volume> [--config|-c <config>] -t <normal|error|discard>
+              Resume  NeonSAN volume 'pool/volume' with default configure file(/etc/neonsan/qbd.conf) or 'config' file through protocol tcp(default) or rdma. This option will resume volume io to the
+              following state: normal, the original io handle process; error, return all io with -EIO; discard, fake return io with EOK, but data invalid.
+
+       --info|-i[<tcp|rdma>://]<pool/volume>[--config|-c<config>]
+              Show mapped NeonSAN volume infomation.
+
+       --resize|-z[<tcp|rdma>://]<pool/volume>[--config|-c<config>]--size|-knew_size
+              Extend NeonSAN volume size. The new size must be more than the old size of volume and it followed by the following suffixes: G|g or T|t.
+
+       --version|-v
+              Show version information.
+
+       --verbose|-V
+              Show verbose information when map or unmap volumes.
+
+       --help|-h
+              Show help information.
+
+NeonSAN                                                                                       2017 Oct 18                                                                                       qbd(8)
+
+
+
+flow:
+
+root@ks0:~# which qbd
+/usr/sbin/qbd
+
+
+
+int main(int argc, char **argv) -> 
+
+case 'h' -> void show_help(void) -> qbd -m -> 
+
+rc = cmd_table[action].func(&qcv, arg);
+
+
+int qbd_map_volume(struct qfa_client_volume_priv *qcv, void *arg)
+  -> qbd/cmd/qbd_comm.h -> #include "neonsan/neon_client.h" ->  map qbd volume -> 
+
+
+内核模块: 
+设备驱动 -> 表现为 -> 内核模块 -> 静态或动态, 注册一个字符设备, 
+
+参考项目: linux_book_2nd_edition
+
+module_init(qbd_init) -> __init宏 -> 
+
+内核调试: 
+https://www.zhaixue.cc/kernel/kernel-debug.html
+
+打印函数: pr_err
+
+kmem_cache_create( )函数用来创建一个slab新缓存，这通常是在内核初始化时执行的，或者在首次加载内核模块时执行
+
+查看编译c++文件使用的头文件目录的命令为：`gcc -print-prog-name=cc1plus` -v
+查看编译c文件的头文件搜索目录的命令为 `gcc -print-prog-name=cc1` -v
+
+
+内核提供的proc接口函数
+proc_create, 创建一个PROC entry，用户可以通过对文件系统中的该文件，和内核进行数据的交互, 中需要指定proc_fops中的read和write等方法，以方便用户空间的操作
+
+
+
+copy dir : module/linux
+
+文件位置: /proc/qbdstat
+
+内核 seq_file 操作函数: https://blog.csdn.net/rikeyone/article/details/103586453
+
+Linux驱动字符设备分析misc_register、register_chrdev: 
+https://blog.csdn.net/alimingh/article/details/116486273
+
+linux 块设备驱动 （三）块设备驱动开发:
+https://www.cnblogs.com/xuyh/p/5340026.html
+
+主从设备号, 
+
+主设备号: 寻址设备驱动程序, 从设备号指定同类型, 不同的设备
+scull: Simple Character Utility for Loading Localities, 用于加载地点的简单字符实用程序, scull 是一个字符驱动, 操作一块内存区域好像它是一个设备
+
+ioctl 变成了 unlocked_ioctl,
+
+策略问题, 安全, 缓冲区覆盖, capability机制, 禁止内核模块加载, 
+
+
+内核没有c库, 系统日志/var/log/messages, 内核递交消息的机制, 模块在内核, 全局项current, 对称多处理器系统( SMP ), 
+
+printk(KERN_INFO "The process is \"%s\" (pid %i)\n", current->comm, current->pid);
+
+内核代码不能做浮点算术, 双下划线, 低层的接口组件, 
+
+lsmod, insmod 和 modprobe(探测性质)区别, 
+
+857  lsmod
+858  ls -alh /proc/modules
+859  cat /proc/modules
+860  ls -alh /sys/module
+
+
+符号表, 堆叠: EXPORT_SYMBOL(name);
+
+register_
+
+
+在 Linux 内核里, 错误码是负数, linux/errno.h, 
+
+
+使代码重复最小和所有东西流线化, 
+
+参数用 moudle_param 宏定义来声明, 
+
+快速参考, 总结, 
+
+
+获取一个或多个设备编号
+register_chrdev_region
+
+动态分配: alloc_chrdev_region
+
+snull_load脚本, 
+
+3个重要内核结构: file_operations, file, 和 inode
+
+poll后端, 位掩码, flush与fsync区别, 
+
+scull 实现(用于加载位置的简单字符实用程序)
+scull==simple character utility for loading localities==区域装载的简单字符工具
+struct file_operations scull_fops = { 
+ .owner = THIS_MODULE, 
+ .llseek = scull_llseek, 
+ .read = scull_read, 
+ .write = scull_write, 
+ .ioctl = scull_ioctl, 
+ .open = scull_open, 
+ .release = scull_release, 
+};
+
+filp文件指针, 
+
+cdev_add, 告诉内核, 
+
+kmalloc, kfree, 
+
+吃内存:  cp /dev/zero /dev/scull0, 量子, 量子集(数组), quantum量子, 
+
+struct scull_qset { 
+ void **data; 
+ struct scull_qset *next; 
+};
+
+指针链表遍历: int scull_trim(struct scull_dev *dev)
+for (dptr = dev->data; dptr; dptr = next)
+
+
+copy_to_user,  copy_from_user
+
+
+
+readv, writev, 矢量版本, 
+一个 readv 调用被期望来轮流读取指示的数量到每个缓存. 相反, writev 要收集每个缓存的内容到一起并且作为单个写操作送出它们,
+
+
+内存屏障,  read memory barrier, 
+
+list_head及其方法集合, 
+
+jiffy滴答, 瞬间, timekeeper, tk, rating评分, 时钟中断, 
+
+中断类别表, 
+
+外部设备产生中断  -> 中断控制器  -> 处理器cpu -> 中断处理程序, 中断描述符表idt, 
+
+软中断, tasklet, 中断控制器的输入引脚, 
+
+
+
+C 库函数 int atexit(void (*func)(void)) 当程序正常终止时，调用指定的函数 func。您可以在任何地方注册你的终止函数，但它会在程序终止的时候被调用
+
+
+dup复制一个现存的文件描述符
+
+
+if (ioctl(cfd, QBD_IOC_MAP_VOLUME, &qv))
+
+
+
+
+
+#define QBD_IOC_MAP_VOLUME _IO(0xfa, 0)
+
+
+static int qbd_device_map(struct qbd_volume *vol)
+
+
+qbd_client_operations
+
+static struct qbd_client_operations qbd_client_tcp_ops
+
+中断共享, 
+
+
+qbd:
+
+qbd_client_rdma_ops
+  .write		= qbd_rdma_write
+
+
+qbd_main.c
+module_init(qbd_init);  // static int __init qbd_init(void) 注册完后释放该函数所在内存
+  qbd_slab_init
+    kmem_cache_create Linux内核API, 创建一个slab新缓存，这通常是在内核初始化时执行的，或者在首次加载内核模块时执行
+    kb_request   Kernel Block Request 
+    qb_request   QBD Block Request
+  qbd_procfs_init  初始化qbd, procfs文件系统
+    proc_qbdstat = proc_create(QBD_STAT_NAME, 0, NULL, &proc_qbdstat_ops)
+  qbd_ctl_init 
+    misc_register(&qbd_ctl)  杂项设备也是在嵌入式系统中用得比较多的一种设备驱动。使用misc_register(&ff_wdt_miscdev);
+  register_blkdev
+  qbd_tcp_init
+  qbd_rdma_init
+    qbd_client_register(&qbd_client_rdma_ops)
+      list_for_each_entry 遍历链表: LIST_HEAD(qbd_client_list)
+      list_add_tail(&client->entry, &qbd_client_list) 如果没有则加入链表
+
+
+
+
+qbd_ctl_init
+  struct file_operations qbdctl_fops
+    .unlocked_ioctl = qbdctl_ioctl 替换ioctl
+      qbdctl_ioctl 控制逻辑
+        kmalloc
+        copy_from_user 从用户空间拷贝数据到内核空间
+        list_for_each_entry(qbd, &qbd_device_list, node)
+        case QBD_IOC_MAP_VOLUME 映射卷
+          qbd_device_map
+            qbd->vol->cops = qbd_client_ops_get(qbd->vol->type)
+              qbd_client_ops_get
+
+
+struct kmem_cache 是对slab缓存进行描述的数据结构，kmem_cache_create( )函数返回一个该结构类型指针。其中kmem_cache结构包含了每个中央处理器单元（CPU）的数据、一组可调整的（可以通过proc文件系统访问）参数、统计信息和管理slab缓存所必需的元素
+
+
+
+常用内核操作:
+insmod kmem_cache_create.ko 插入模块
+dmesg -c 读取和清除所有消息(Display or control the kernel ring buffer)
+
+qbd.c
+main
+  atexit(atexit_handle) 注册你的终止函数，但它会在程序终止的时候被调用
+  open("/dev/null", O_RDWR, 0)
+  signal(SIGPIPE, SIG_IGN) 简单地忽略信号 SIGPIPE, 将 SIG_IGN 作为处理程序传递会忽略给定的信号
+  modprobe("qbd" VERSION_SUFFIX_STRING)
+  get_version(0)
+    fopen("/sys/module/qbd"
+    fgets(buf, 64, fp)
+  switch (c)
+    ACTION_MAP_VOLUME qbd_map_volume
+    set_vol_name_type
+  cmd_table[action].func(&qcv, arg)  执行命令
+
+
+qbd_map_volume
+  open_volume_common
+  get_cfg_int
+  qbd_qos_init
+  show_shard_ips
+  cfd = open(DEV_QBDCTL, O_RDWR)
+  ioctl(cfd, QBD_IOC_MAP_VOLUME, &qv)  映射
+    qbd_device_map
+  get_device_name_by_id
+  ioctl(dfd, BLKRRPART, NULL) // 强制重新读取 SCSI 磁盘分区表
+
+qbd_device_map
+  kzalloc
+  qbd_ratelimit_init(&qbd->aio_err_rs)
+  INIT_WORK(&qbd->disk_resize_work, qbd_disk_resize_work);
+  INIT_WORK(&qbd->iodepth_resize_work, qbd_iodepth_resize_work)
+  qbd->vol->cops = qbd_client_ops_get
+  qbd_init_disk
+    qbd_blk_alloc_disk
+    qbd_blk_add_disk
+      disk_to_dev
+      add_disk
+    qbd_shards_group_create
+  qbd_open_volume
+  qbd_queue_thread
+    set_user_nice
+    _kernel_queue_thread
+      case QBD_AIO_READ:
+      case QBD_AIO_WRITE:
+        wake_up_process(qbd->qbd_queue_thread)
+  init_waitqueue_head
+
+qbd_queue_thread
+  _qbd_queue_thread
+    case QBD_AIO_READ
+    case QBD_AIO_WRITE
+      qbd_aio_write
+        return vol->cops->aio_write qbd_rdma_aio_write
+
+
+qbd_rdma_aio_write
+  qbd_rdma_aio
+    qbd_alloc_iotask_rdma
+    spin_lock_irq
+    list_add_tail(&iotask->list, &client->snd_queuelist)
+    wake_up_process(client->snd_thread);
+      qbd_rdma_snd_thread
+        _qbd_rdma_snd_thread
+          trace_qbd_rdma_snd_iotask_start
+          qbd_get_shard_conn
+          qbd_alloc_iocmpl_rdma
+          qbd_alloc_iocmpl_rdma
+          rdma_post_send_command
+            ib_dma_sync_single_for_device
+              ib_post_recv
+            return ib_post_send(rdma->qp, &swr, NULL) 内核态rdma发送
+          up_read(&client->snd_rwsem)
+
+
+io路径
+io_path
+client
+入参说明:
+1. 要写的卷对象
+2. 要写的数据buf
+3. 数据字节数(长度)buf_len
+4. slba: 起始逻辑块地址(4096)
+5. nlba 逻辑块数量(4096)
+6. callback 写完后的回调函数
+7. cbk_arg 回调函数的参数
+
+客户端发起IO(写)
+neonfio, fio, 
+if (io_u->ddir == DDIR_WRITE)
+qfa_aio_write
+  volume->qfa_aio(volume, buf, buf_len, slba, nlba, callback, cbk_arg, 1)
+  qfa_aio_via_tcp | qfa_aio_via_rdma  qfa_aio = xxx
+    
+
+qfa_aio_via_rdma
+  客户端判断数据缓冲区长度, 是否对齐等...
+  struct io_task* io = qfa_alloc_task(&volume->iotask_pool) 分配io任务 cmd
+    fsq_dequeue
+  io->ulp_handler = callback; 上层回调
+  struct qfa_rw_command* cmd = io->cmd_bd->io_cmd; // 指向同一地址
+  io->data_bd = qfa_alloc_bd(&volume->data_bd_pool) fsq_dequeue 分配一个数据块, 承载客户端IO, 块大小为创建卷时指定的块大小(max_blocksize), center的sql中设置默认值为: max_blocksize BIGINT UNSIGNED DEFAULT 16384 (16KB)
+  memcpy(io->data_bd->buf, buf_, buf_len) 将客户端的数据拷贝到数据块buf上
+  cmd->opcode = is_write ? qfa_op_write : qfa_op_read;
+  cmd->snap_seq = volume->snap_seq;
+  ret = qfa_post_event(&volume->task_receiver, EVT_IO_REQ, 0, io); 提交IO事件  -> volume_proc -> case EVT_IO_REQ
+
+static int _fio_qfa_connect
+qfa_open_volume
+  static void* volume_proc(void* _v)
+    while (qfa_get_event(&v->task_receiver, &evt) == 0)
+      case EVT_IO_REQ
+        struct io_task* io = (struct io_task*)evt.arg_p; 获取io
+        flowctrl_handle 流控
+        int shard_index = io_cmd->slba >> SHARD_LBA_CNT_ORDER;
+        struct qfa_connection* conn = qfa_get_shard_conn(v, shard_index); 从连接池获取连接
+          qfa_pool_get_connection
+            ht_get(&pool->conn_table, addr, sizeof(*addr), &size)
+            init_client_connection 如果连接池没有连接则新建连接
+        comp = client_alloc_comp(conn) 完成队列池 分配一个空的buf描述(放置io完成)
+        conn->post_reply_recv(conn, comp) client_post_rdma_reply_recv  先在接收队列放置一个WQE
+        ret = conn->post_request_send(conn, io) post_rdma_request_send 提交IO发送请求
+
+client_post_rdma_reply_recv
+  post_srq_receive(q_srq, msg) 提交共享接收队列
+    struct ibv_sge recv_sg
+    struct ibv_recv_wr recv_wr
+    msg->opcode = IBV_WC_RECV
+    ibv_post_srq_recv(srq, &recv_wr, &bad)  Work Requests -> SRQ
+      srq->context->ops.post_srq_recv  关联 ibv_create_srq 往本端共享接收队列放置一个WQE  on_replicate_rdma_complete
+
+
+SRQ -> WQE -> 256个sge * 4GB = 1TB物理内存  非错误和错误状态
+
+IBV_SEND_SIGNALED - 设置此 WR 的完成通知指示符。 这意味着如果 QP 是用 sq_sig_all=0 创建的，那么当这个 WR 的处理结束时，将生成一个 Work Completion。 如果 QP 是使用 sq_sig_all=1 创建的，则此标志不会有任何影响, 即支持'静默完成(sq_sig_all)'的QP中产生一个WC
+.sq_sig_all = 0
+IBV_SEND_SIGNALED - 设置此 WR 的完成通知指示符。 这意味着如果 QP 是用 sq_sig_all=0 创建的，那么当这个 WR 的处理结束时，将生成一个 Work Completion。 如果 QP 是使用 sq_sig_all=1 创建的，则此标志不会有任何影响
+
+提交IO发送请求
+post_rdma_request_send
+  io->cmd_bd->io_cmd->rkey = io->data_bd->mrs[conn->mr_index]->rkey; 远程key, 注册时设置了内存区域 reg_buf_desc_pool -> pool->msg_buf[i].mrs[mr_index] = mr
+  post_send(conn, io->cmd_bd)
+    struct ibv_sge send_sg
+    struct ibv_send_wr send_wr
+      .wr_id = (uint64_t)msg
+      .opcode = IBV_WR_SEND
+      .send_flags = IBV_SEND_SIGNALED IBV_SEND_INLINE 和 IBV_SEND_SIGNALED 是RDMA 优化小消息通信性能的方法之一 https://blog.csdn.net/bandaoyu/article/details/119207147
+      .send_flags = IBV_SEND_SIGNALED IBV_SEND_INLINE 和 IBV_SEND_SIGNALED 是RDMA 优化小消息通信性能的收到之一 https://blog.csdn.net/bandaoyu/article/details/119207147
+    msg->opcode = IBV_WC_SEND on_completion 检查此操作码
+    ibv_post_send(conn->rdma_id->qp, &send_wr, &bad)  对端接收队列接收数据, rdma硬件完成远程数据发送, 对端接收队列收到后, 将在对端完成队列中通过事件通知 on_completion(&wc); 本端触发: on_rdma_complete client_do_complete, 完成发送: IBV_WC_SEND, 接收端(服务端)接收完成: if (wr_ctx->opcode == IBV_WC_RECV)
+    发送端: on_replicate_rdma_complete 
+      if (wr_ctx->opcode == IBV_WC_SEND)
+        __sync_fetch_and_or(&wr_ctx->parent_task->cmd_sent_done, 1);
+
+ibv_post_send() 将工作请求 (WR) 的链表发布到队列对 (QP) 的发送队列。 ibv_post_send() 逐一遍历链表中的所有条目，检查其是否有效，从中生成特定于硬件的发送请求，并将其添加到 QP 发送队列的尾部，而不执行任何上下文切换 . RDMA 设备将以异步方式（稍后）处理它。 如果由于发送队列已满或 WR 中的属性之一错误导致 WR 之一出现故障，它会立即停止并返回指向该 WR 的指针。 QP会按照以下规则处理Send队列中的Work Requests：
+
+
+客户端和服务端都需要轮询完成队列
+客户端: int on_route_resolved(struct rdma_cm_id* id)
+服务端: int PfRdmaServer::on_connect_request
+build_context
+  qfa_poller_add(&(ctx->poller_ctx[i].cq_poller), comp_ec->fd, EPOLLIN, on_rdma_cq_event, &ctx->poller_ctx[i]);  添加监听
+    on_rdma_cq_event
+      static void *cq_poller_proc(void* arg_)
+        #ifdef VALGRIND_CHECK  内存检测 https://blog.csdn.net/swartz_lubel/article/details/73135554 Memcheck：一个内存错误检测器 valgrind
+          VALGRIND_MAKE_MEM_DEFINED(poller_ctx->comp_ec, sizeof(*poller_ctx->comp_ec)); https://valgrind.org/docs/manual/mc-manual.html • 在您的应用程序中，您可以通知Valgrind 有关已初始化内存的信息，以防止误报。 在代码中抑制
+        ibv_get_cq_event
+        ibv_ack_cq_events(cq, cnt);
+        ibv_req_notify_cq
+        while ((n = ibv_poll_cq(cq, MAX_WC_CNT, wc)))  poll完成队列
+          struct buf_desc* msg = (struct buf_desc*) wc[i].wr_id;  ib_wc_opcode_str 操作码字符串
+          msg->handler(wc[i].status, wc[i].opcode, &wc[i]) 消息控制器 -> qfa_set_comp_handler 完成控制器 void on_completion, 根据池类型执行其控制器, 客户端: qfa_set_comp_handler(task_pool->cmd_pool.msg_buf, task_pool->block_count, on_rdma_complete)
+            void on_completion buf_desc结构定义了一个handler函数指针，指向on_completion。因此最终由on_completion来处理work request的完成事件
+
+
+
+
+
+调用 ibv_ack_cq_events() 在数据路径中可能相对昂贵，因为它使用互斥对象。 因此，最好通过计算需要确认的事件数量并在一次调用中确认多个完成事件来分摊此成本
+
+
+on_completion
+qfa_set_comp_handler  
+  pool[i].handler = handler
+  else if (wc->opcode == IBV_WC_SEND)
+    struct io_task *io = wr_ctx->parent_task  指向父任务  父子任务关系: pool->tasks[i].cmd_bd->parent_task = &pool->tasks[i];
+    post_cmd_receive(conn) 先收命令
+      rt = (struct RunningTask *)fsq_dequeue(&conn->free_cmd_wrs)
+      struct io_task* t = rt->originalTask;
+      conn->post_request_recv(conn, t) post_rdma_request_recv 提交接收
+
+
+post_rdma_request_recv
+  post_receive(conn, io->cmd_bd)
+    msg->opcode = IBV_WC_RECV 服务端接收客户端数据
+    ibv_post_recv(conn->rdma_id->qp, &recv_wr, &bad)
+    void on_completion
+
+发送端发送写命令成功后,接收端处理RDMA完成事件, 收端将发端的数据READ过来(所以不区分数据块大小)
+on_completion
+  if (wr_ctx->opcode == IBV_WC_RECV)
+    if (cmd->nlba == 1) 计算逻辑块数, 只有1个逻辑块,则从4k池中分配数据块
+      data_bd = (struct buf_desc*)fsq_dequeue_return_count(&store_inst->dispatcher[conn->disp_index]->pool4k.free_list, &free_count)
+    else if (cmd->nlba <= MAX_IO_NLBA)  4 * 64 = 256KB
+      data_bd = (struct buf_desc*)fsq_dequeue_return_count(&store_inst->dispatcher[conn->disp_index]->pool512k.free_list, &free_count); 从512K池分配数据块
+      /* 双向绑定 */
+      wr_ctx->parent_task->data_bd = data_bd;
+      data_bd->parent_task = wr_ctx->parent_task;
+        if (cmd->opcode == qfa_op_write) /* 如果客户端是写请求, 则此服务端需要从客户端将数据读过来 */
+          post_read(conn, data_bd, cmd->buf_addr, cmd->rkey) /* 拿到客户端的内存访问权限(rkey), 内存地址(buf_addr), cmd->buf_addr -> data_bd */
+            .opcode = IBV_WR_RDMA_READ,
+            msg->opcode = IBV_WC_RDMA_READ;  工作完成操作为RDMA读, 读客户端的数据到bd指针中 raddr (cmd->buf_addr) -> .addr = (uint64_t)msg->buf data_bd
+            ibv_post_send(conn->rdma_id->qp, &send_wr, &bad) on_completion
+
+on_completion
+  else if (wc->opcode == IBV_WC_RDMA_READ) 读完客户端数据后执行
+    store_inst->dispatcher[conn->disp_index]->submit_io(wr_ctx->parent_task) 提交io/分发IO
+    int64_t OpDispatcher::submit_io(struct io_task* ioTask)
+      task_receiver.post_event(EVT_IO_REQ, 0, t); 
+      IO由分发器分发落盘
+
+客户端写服务端
+cs_connection_write.drawio
+static void* dispatcher_run(void* _d)
+  int EventQueue2::get_event(struct event_queue_buf **queue_buf)
+    case EVT_IO_REQ:
+      d->dispatch_io_req(*evt); 分发io请求 void OpDispatcher::dispatch_io_req(qfa_event &evt)
+        uint64_t shardIndex = t->ioCmd->slba >> SHARD_LBA_CNT_ORDER
+        uint64_t shardID = VOL_TO_SHARD_ID(t->ioCmd->vol_id) | (shardIndex << 4)
+        unordered_map<uint64_t, Shard*>::iterator shard_pos = opened_shards.find(shardID); 无序map,查找
+        else if (t->ioCmd->opcode == qfa_op_write) 写主, 客户端默认就是写主副本
+        do_primary_write(t, shard) void OpDispatcher::do_primary_write(RunningTask* t, Shard* shard)
+          auto v_pos = opened_volumes.find((uint64_t)VOL_TO_VOL_ID(t->ioCmd->vol_id)); 找卷位置
+          t->setup_subtask(this, shard, v->BackupSeq) 设置子服务
+            Replica* r = shard->Replicas[i] 分片下的副本数组
+            IoSubTask* t = (IoSubTask*)fsq_dequeue_return_count
+            t->taskType = TaskType::IoTask;
+            subTasks[r->Index] = t;
+          dirty_bits 降级置脏
+          for(int i=0; i<shard->RepCount; i++) 遍历副本,提交io
+          r->submit_io(t->subTasks[r->Index]) 提交io   虚函数,编译时不确定 实现运行时多态 提交io给副本  virtual void submit_io(IoSubTask* io);
+            task_receiver.post_event(EVT_IO_REQ, 0, t)
+          void Replica::submit_io
+            store_inst->ssds[ssdIndex]->submit_io(io) 提交给ssd 本地写
+            store_inst->replicator[io->parent->originalTask->ctx.replicator_index]->submit_io(io) 远端写 replicator_run > case EVT_IO_REQ
+            inline void submit_io(IoSubTask* io) { task_receiver.post_event(EVT_IO_REQ, 0, io); }
+远端写(写副本):
+void* replicator_run(void* r_)
+  case EVT_IO_REQ
+    qfa_replicate_write
+      cmd->opcode = qfa_op_replicate_write
+
+
+
+
+闪存盘对象
+void qfa_ssd_info::submit_io(IoSubTask *io)
+  task_receiver.post_event(EVT_IO_REQ, 0, io);
+    write(fd, &event_delta, sizeof(event_delta))
+      void* ssd_run(void* arg) ssd线程中等待事件
+        while (s->task_receiver.get_event(&q) == 0)  CResFinally resource auto release 资源自动释放
+        REGISTER_EVENT_MONITOR(s, std::string(s->dev_name), evt->type)
+        case EVT_IO_REQ
+          s->doWrite(io) 写io
+            auto block_pos = block_map.find(key) 找key
+            if (block == NULL) 如果块没有分配,则新分配块, 记录分配日志
+              block = entry_pool.alloc()
+              block_map[key] = block
+              int rc = redo_log.log_block_allocation(&key, block, free_blocks.head) 记录分配日志
+              bitmap_64K = new ObjectBitmap(blockId, b2d_64K) 记录位图
+              bitmap_64K->clear_and_flush()
+            else 之前已分配,直接使用
+              检查块状态
+              BLOCK_STATE_RECOVERYING
+              BLOCK_STATE_COPYING 正在执行写时复制
+              if (unlikely((int64_t)io->parent->ioCmd->snap_seq > block->snap_seq)) 要写的快照序号大于块的快照序号,需要执行写时复制
+                initiateCow(&key, block, io, isLinkBlock) 初始化写时复制
+            do_io(block->offset + offsetInBlock(io->parent->ioCmd->slba), io)
+              io_submit(aio_ctx, 1, &aiocb) aio提交
+              io_submit(aio_ctx, 1, &aiocb)
+
+工作完成状态转字符串: rdma_core
+const char *ibv_wc_status_str(enum ibv_wc_status status)
+{
+	static const char *const wc_status_str[] = {
+		[IBV_WC_SUCCESS]		= "success",
+    ...
+	};
+
+	if (status < IBV_WC_SUCCESS || status > IBV_WC_TM_RNDV_INCOMPLETE)
+		return "unknown";
+
+	return wc_status_str[status];
+}
+
+
+
+io_prep_pwrite(aiocb, dev_fd, data_ctx->buf, data_ctx->data_len,
+                       offset)
+  rc = io_submit(aio_ctx, 1, &aiocb)
+  aio_poller_proc 异步轮询, IO完成(落盘/或读成功)
+    handle_io_task_finish(ssd, aiocb, (IoSubTask*)task, failed);
+      case qfa_op_write
+        complete_subtask(task, QFA_SC_SUCCESS);
+          store_inst->dispatcher[i]->task_receiver.post_event(EVT_IO_COMPLETE, 0, task)
+            d->dispatch_io_complete(*evt);
+              if (subTask->parent->pendingTask == 0) 写副本无阻塞
+              post_write
+                IBV_WR_RDMA_WRITE
+                ibv_post_send
+              post_reply_send
+
+if (subTask->parent->flag_tryset_unused()) 写
+  __sync_bool_compare_and_swap bool __sync_bool_compare_and_swap (type *ptr, type oldval type newval, ...) 比较*ptr与oldval的值，如果两者相等，则将newval更新到*ptr并返回true https://zhuanlan.zhihu.com/p/32303037 原子操作
+  qfa_complete_io_task_(iotask, compeleteStatus, 0)
+    io->comp_bd->io_comp->status = status
+    io->cmd_bd->conn->post_reply_send(io->cmd_bd->conn, io) 发送回复 post_rdma_reply_send 完成数据块
+
+
+post_rdma_reply_send
+    .opcode = IBV_WR_SEND
+    msg->opcode = IBV_WC_SEND
+    return post_send(conn, io->comp_bd) 完成数据块
+    on_replicate_rdma_complete
+
+on_replicate_rdma_complete
+  if (wr_ctx->opcode == IBV_WC_RECV)
+    rep->task_receiver.post_event(EVT_RDMA_COMPLETE, wc->status, wr_ctx);
+      static void replicator_do_complete 副本接收数据完成
+  if (wr_ctx->opcode == IBV_WC_SEND)
+
+
+
+重点:
+1. 元数据
+2. io路径
+
+卷元数据: 卷/分片/副本
+元数据.drawio
+
+cq fd 有读写时执行cq_poller_proc
+
+wr_id 指针强转
+
+io处理完,重新往接收队列放一个WR
+post_cmd_receive(conn)
+
+replicator只负责写, io_task_pool
+
+客户端
+on_replicate_rdma_complete
+
+replicator_do_complete
+
+complete_subtask
+
+io_task bind run_task
+
+qfa_pick_io_task
+
+qumu client client_common.c
+client_do_complete
+
+
+store启动时初始化副本线程
+qfa_create_store_inst
+  store_inst->replicator[i]->init(i) for循环中启动副本器
+  int replicator::init(int id)
+    task_receiver.init
+    qfa_init_task_pool 初始化任务池
+      memalign 分配对齐的内存
+    qfa_set_pool_owner
+    qfa_init_comp_pool
+    qfa_set_comp_task
+    qfa_set_comp_handler on_replicate_tcp_complete 设置完成回调 
+    qfa_set_comp_handler on_replicate_rdma_complete
+    qfa_init_srq_pool 共享接收队列池
+    pthread_create(&tid, NULL, replicator_run, this) 启动副本线程 replicator_run 远端写
+      REGISTER_EVENT_MONITOR(r, string(r->name), evt->type);
+      auto conn = r->conn_pool.get_connection_no_create
+      acquire_throttle 获得阀门 io_depth控制 release_throttle 释放阀门
+      qfa_replicate_write
+        cmd->opcode = qfa_op_replicate_write
+        rc = conn->post_reply_recv(conn, comp_bd) 从副本线程接,提交完成接收  client_post_rdma_reply_recv IBV_WC_RECV 先放置完成wr
+          on_replicate_rdma_complete
+            rep->task_receiver.post_event(EVT_RDMA_COMPLETE, wc->status, wr_ctx);
+              replicator_do_complete
+                struct io_task* rep_task = qfa_pick_io_task
+                  if (likely(op == qfa_op_replicate_write))
+                    complete_subtask((IoSubTask*)rep_task->ulp_arg, comp->status)
+                      store_inst->dispatcher[i]->task_receiver.post_event(EVT_IO_COMPLETE, 0, task); d->dispatch_io_complete(*evt);
+        rc = conn->post_request_send(conn, rep_task); 提交副本写 post_rdma_request_send
+          if (wr_ctx->opcode == IBV_WC_SEND)  命令发送完成
+            __sync_fetch_and_or(&wr_ctx->parent_task->cmd_sent_done, 1);
+
+
+msg->handler(wc[i].status, wc[i].opcode, &wc[i]) 回调
+
+
+发送成功后, 发送端cq和接收端cq各产生一个cqe
+
+
+dispatch_io_complete
+  qfa_complete_io_task(iotask, QFA_SC_INTERNAL, -1);
+
+
+
+dipatcher_io_complete
+  post_write
+
+数据结构: iotask管理 IOtask管理22_03_30 10_06_28.mp4
+bind_tasks
+RunningTask
+io_task
+sub_task ref
+qfa_task.cpp owner_pool->free
+
+dec_ref() 引用计数,回收进pool
+cmd_wrs
+rdma free_cmd_wrs 固定32
+replicator 客户端 iotask qfa_free_task completion
+
+
+class PodObjectPool : public qfa_mem_pool   // 公有继承 泛型/模板编程
+  // NeonSAN: typedef PodObjectPool<RunningTask> RunningTaskPool; 用参数RunningTask创建一个PodObjectPool实例RunningTaskPool
+
+store启动:
+int OpDispatcher::init(int id)
+  running_task_pool.init(this->iotaskpoolsize)
+
+
+
+OpDispatcher
+  RunningTaskPool running_task_pool; 运行任务池  typedef PodObjectPool<RunningTask> RunningTaskPool;
+
+
+
+sync_lambda_call
+
+
+快照, 写时复制, COW
+snap_seq > block->snap_seq
+void qfa_ssd_info::initiateCow 初始化写时复制
+  block_entry* newBlock = entry_pool.alloc() 分配新的块
+  ObjectBitmap bitmap_64K_new(newBlockId, b2d_64K) 新建位图
+  if (io_trigger->backup_seq != -1) 如果备份快照有值
+    更新位图
+  block_map[*key] = newBlock
+  redo_log.log_block_allocation
+  copy_obj(newBlock->offset, curentHead->offset, newBlock, key) 拷贝对象,复制对象
+    task = cow_task_pool.alloc() 分配cow任务
+    task->op = qfa_op_cow_read 操作为写时复制(读)
+    qfa_alloc_big_mem(&pool64M)
+    aiocb = (struct iocb*)qfa_alloc_mem(&aio_pool)
+    io_prep_pread(aiocb, dev_fd, task->data_buf, OBJ_SIZE, src_offset)
+    rc = io_submit(aio_ctx, 1, &aiocb) 从硬盘读块数据 -> aio_poller_proc
+
+
+
+aio_poller_proc
+handle_cow_task_finish
+  case qfa_op_cow_read
+  task->op = qfa_op_cow_write 读完后执行写入
+  io_submit -> aio_poller_proc
+  qfa_free_big_mem(&pool64M, task->data_buf) 写完后,释放缓冲区
+  ssd->CowCompleteHandler(task, failed) 完成写时复制
+    task_receiver.post_event(EVT_COW_COMPLETE, completeStatus, task) -> ssd_run
+
+
+void* ssd_run(void* arg)
+  case EVT_COW_COMPLETE
+    auto io = entry->waiting_io 获取等待的io
+    while (io != NULL) 有io
+      qfa_op_read | qfa_op_recovery_read | qfa_op_recovery_read_v2
+        s->doRead(io) 读
+      qfa_op_write | qfa_op_recovery_write | qfa_op_replicate_write
+        s->doWrite(io) 写
+
+ 
+任务 io任务 io子任务 qfa_task.h
+io_task SUbTask
+struct IoSubTask
+struct RunningTask
+
+
+
+server
+
+init_server_buffer
+
+
+
+读数据:
+// 应用读数据,站在服务端的角度就是讲数据通过RDMA写操作, 写到客户端提前注册好的内存地址上
+aio_poller_proc
+handle_io_task_finish
+complete_subtask
+EVT_IO_COMPLETE
+dispatch_io_complete 
+  rc = post_write(iotask->cmd_bd->conn, iotask->data_bd, iotask->cmd_bd->io_cmd->buf_addr,
+    .opcode = IBV_WR_RDMA_WRITE
+    ibv_post_send
+
+
+完成IO
+qfa_complete_io_task
+
+写完成,释放资源, 如4k/512k数据块, 
+aio_poller_proc
+  dispatch_io_complete
+    qfa_complete_io_task_
+      io->cmd_bd->conn->post_reply_send(io->cmd_bd->conn, io) 提交回复
+        on_rdma_complete
+          qfa_post_event(&vol->task_receiver, EVT_RDMA_COMPLETE, wc->status, completion_ctx)
+            client_do_complete
+              qfa_free_bd(&vol->data_bd_pool, io->data_bd)
+                qfa_free_bd pool4k | pool512k
+
+on_completion
+else if (wc->opcode == IBV_WC_SEND) // io完成, 统计性能
+  wr_ctx->parent_task->running_task->dec_ref()
+    if (io->data_bd)
+      qfa_free_bd pool4k | pool512k
+  int rc = post_cmd_receive(conn);  // 准备下轮命令接收, 放置一个wr到rq
+
+
+
+
+连接池
+qfa_get_shard_conn
+/* 插表时, 判断是否自动扩容, 扩容时,将大小放大2倍 */
+
+
+rdma_neonsan
+
+server:
+class RdmaServer
+qfa_create_store_inst
+    store_inst->rserver = new RdmaServer()
+        init(NULL, QFA_RDMA_PORT)  -> RdmaServer::init
+            getaddrinfo(ip, NULL, NULL, &addr)  高低位互换,主机字节序->网络字节序
+            sin_port = htons(port)
+            rdma_create_event_channel 创建事件通道
+            rdma_create_id 分配通信标识id  端口空间为：RDMA_PS_TCP
+            rdma_bind_addr 绑定
+            rdma_listen  监听传入的连接请求,默认连接积压数为1024
+            rserver_run 运行rdma服务器
+
+
+该线程不可中途取消
+rserver_run
+    O_NONBLOCK  非阻塞
+    fcntl
+    poll_fd.fd = server_cm_ec->fd 将事件通道上的fd与pollfd做绑定
+    poll_fd.events = POLLIN
+    poll(&poll_fd, 1, -1) poll事件
+    rdma_get_cm_event 获取事件
+    switch (evt_cpy.event) 判断事件
+        RDMA_CM_EVENT_CONNECT_REQUEST 连接请求
+
+
+
+
+
+
+
+重要结构：
+struct rdma_cm_id* listener; server
+
+struct pollfd poll_fd;
+
+struct  rdma_cm_id *rdma_id; client, context字段可以放连接地址
+
+struct ibv_srq *srq;  Shared Receive Queue 共享接收队列
+
+
+client:
+init_client_connection
+    rc = init_rdma_client_connection
+        rconnection->srq_pool = srq_pool 共享接收队列池
+        rdma_create_event_channel 创建事件通道
+        client_cm_ec_proc 客户端事件通道处理线程
+        ht_init 初始化hash表
+        rdma_create_id
+        rdma_resolve_addr
+        pthread_cond_timedwait 条件等待， 等broadcast
+
+
+
+get_dev_context
+    build_context
+        reg_buf_handler
+        reg_server_buffer
+        
+
+
+write:
+dispatcher_run
+  switch (evt->type)
+  case EVT_IO_COMPLETE
+    dispatch_io_complete
+      post_write(struct qfa_connection* conn, struct buf_desc* msg, uintptr_t raddr, uint32_t rkey)  raddr = iotask->cmd_bd->io_cmd->buf_addr
+        ibv_sge send_sg
+        ibv_send_wr send_wr
+        .opcode = IBV_WR_RDMA_WRITE
+        msg->opcode = IBV_WC_RDMA_WRITE
+        ibv_post_send(conn->rdma_id->qp, &send_wr, &bad)
+
+
+
+complete_subtask
+
+
+reg_server_buffer
+    reg_buf_desc_pool
+        ibv_reg_mr 注册内存 IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE
+
+
+
+filter:
+other, s10, qbd,thirdparty
+
+
+cq_poller_proc
+    ibv_poll_cq
+
+qfa_poller_add(&(ctx->poller_ctx[i].cq_poller), comp_ec->fd, EPOLLIN, on_rdma_cq_event, &ctx->poller_ctx[i])
+
+
+
+
+tcp or rdma
+conn->post_request_recv = post_rdma_request_recv
+conn->post_request_recv = post_tcp_request_recv
+
+
+tcp
+int neonsan_send_all(int fd, void* buf, int len, int flag);
+int start_recv(struct qfa_tcp_session *tsession, void* buf, int len, enum SendRecvState new_rcv_state);
+int start_send(struct qfa_tcp_session *tsession, void* buf, int len, enum SendRecvState new_send_state);
+
+
+if(RDMA == get_transport())
+{
+  store_inst->rserver = new RdmaServer();
+  rc = store_inst->rserver->init(NULL, QFA_RDMA_PORT);
+  if (rc)
+  {
+    golog(NEON_LOG_FATAL, "Failed init RDMA server:%d", rc);
+    return NULL;
+  }
+}
+
+store_inst->tcp_server = new TcpServer();
+rc = store_inst->tcp_server->init(NULL, QFA_TCP_PORT);
+
+
+accept_proc
+create_tcp_server_connection
+tsession->on_recv_complete = on_server_receive_complete;
+on_server_receive_complete
+  start_send
+
+
+
+crc:
+computeCRC
+uint32_t computeCRC(const char *ptr, uint32_t len, uint32_t lastcrc){
+    int32_t crc;
+    uint32_t temp1;
+    uint32_t temp2;
+
+    int32_t crc_ta[256];
+    int i = 0;
+    int j = 0;
+    uint32_t crc2 = 0;
+
+#define CRC32_POLYNOMIAL 0xEDB88320
+
+    /*build crc table*/
+    for (i = 0; i <= 255; i++) {
+        crc2 = i;
+        for (j = 8; j > 0; j--) {
+            if ((crc2 & 1) == 1) {
+                crc2 = (crc2 >> 1) ^ CRC32_POLYNOMIAL;
+            } else {
+                crc2 >>= 1;
+            }
+        }
+        crc_ta[i] = crc2;
+    }
+
+    crc = lastcrc;
+    while(len--!=0) {
+        temp1 = (uint32_t)crc>>8;
+        temp2 = crc_ta[(crc^*ptr) & 0xFF];
+        crc = temp1^temp2;
+        ptr++;
+    }
+    return(crc);
+}
+
+
+
+------- fsq 环形队列 ---------
+总结: 这个固定大小环形队列还是有锁的, 只是用的spinlock
+API: common/include/neon_fixed_size_queue.h
+语义: 
+fsq_enqueue -> 入队
+fsq_dequeue -> 出队
+
+定义:
+typedef struct fixed_size_queue
+{
+	pthread_spinlock_t lock;
+	int tail;			///< tail pointer
+	int head;			///< head pointer
+	int queue_depth;	///< queue depth, max number of element can be put to this queue plus 1
+	void** data;		///< memory used by this queue, it's size of queue_depth * ele_size 二级指针, 存放内存块
+	int index_mask;		///< mask for head and tail index, to make value valid
+} fixed_size_queue_t;
+
+内存块描述:
+struct buf_desc {
+    struct qfa_connection *conn;
+    struct io_task *parent_task; //dispatcher
+    struct qfa_client_volume_priv *vol;//which volume it belongs to
+    struct replicator *rep; //which replicator it belongs to
+    struct ibv_mr *mrs[4];
+    union {
+        struct qfa_rw_command *io_cmd; //point to command
+        struct qfa_completion *io_comp; //point to completion
+        void* buf;
+    };
+    unsigned int data_len;//valid data length in buf.
+    int opcode;	//IBV_WC_SEND , IBV_WC_RECV , IBV_WC_RDMA_READ or IBV_WC_RDMA_WRITE
+    unsigned int buf_len; //memory size, i.e. capacity of buf
+    struct qfa_srq *q_srq; // Used by completion buf
+    struct completion_pool *comp_pool; //Used by completion buf
+    completion_handler handler;
+};
+
+------- fsq 环形队列 ---------
+
+
+
+
+
+docker run:
+docker run -ti  --ulimit core=-1 --privileged --hostname pfs-d  --net pfnet --ip 172.1.1.2  --rm -v ~/pf:/root/pf   --name pfs-d  -e TZ=Asia/Shanghai pureflash/pfs-dev:1.6 /bin/bash
+
+
+初始SQL脚本:
+init_s5metadb.sql
+
+
+配置文件: pfs_template.conf
+测试: test_1.sh
+
+链接库:
+TARGET_LINK_LIBRARIES(pfs rdmacm ibverbs pthread zookeeper_mt  hashtable uuid ${SPDKLIBS} ${DPDKLIBS} s5common nlohmann_json::nlohmann_json aio curl  ${THIRDPARTY}/isa-l_crypto/.libs/libisal_crypto.a libsgutils2.a)
+
+最后，列出PureFlash系统相关的git库：
+PureFlash存储服务pfs:   https://github.com/cocalele/PureFlash.git  
+PureFlash控制服务jconductor: https://github.com/cocalele/jconductor.git
+增加了pfbd engine的fio:  https://gitee.com/cocalele/fio   
+增加了pfbd支持的qemu: https://gitee.com/cocalele/qemu
+将PureFlash volume导出成iSCSI target的tcmu： https://gitee.com/cocalele/tcmu-runner
+————————————————
+版权声明：本文为CSDN博主「winux」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/winux/article/details/114436250
+
+
+入口, 启动服务端
+pfs/src/pf_main.cpp -> int main(int argc, char *argv[])
+opt_initialize(argc, (const char**)argv);
+rep_conn_type = RDMA_TYPE
+init_cluster(zk_ip, cluster_name)
+app_context.engine = IO_URING | SPDK | AIO
+spdk_setup_env
+    env_opts.pci_allowed = g_allowed_pci_addr; -> 500万IOPS
+spdk_unaffinitize_thread()
+...
+format_disk -> 格式化磁盘
+    save_meta_data(NULL, NULL, NULL, head.current_metadata) -> 保存元数据
+    MD5Stream_ISA_L::init()
+        md5_ctx_mgr_init(mgr)
+        hash_ctx_init(&ctxpool)
+	md5_ctx_mgr_submit(mgr, &ctxpool, buf, (uint32_t)count, data_len == 0 ? HASH_FIRST : HASH_UPDATE);
+
+
+rdma:
+app_context.rdma_server->init(RDMA_PORT_BASE) -> int PfRdmaServer::init(int port)
+    rdma_create_event_channel
+    rdma_create_id
+    rdma_bind_addr
+    rdma_listen
+    static void *rdma_server_event_proc(void* arg)
+
+
+
+
+
+
+count = spdk_ring_dequeue(messages, msgs, max_events);
+
+
+    
+
+
+
+
+打印日志:
+void s5log(int level, const char * format, ...)
+
+时间:
+S5LOG_INFO("PureFlash pfs start..., version:1.0 build:%s %s", __DATE__, __TIME__);
+    
+
+延迟执行:
+DeferCall _2([this]() { delete ioengine; ioengine=NULL; });
+
+初始化磁盘头:
+int PfFlashStore::initialize_store_head()
+
+
+struct HeadPage {
+    uint32_t magic;
+    uint32_t version;
+    unsigned char uuid[16];
+    uint32_t key_size;
+    uint32_t entry_size;
+    uint64_t objsize;
+    uint64_t tray_capacity;
+    uint64_t meta_size;
+    uint32_t objsize_order; //objsize = 2 ^ objsize_order
+    uint32_t rsv1; //to make alignment at 8 byte
+    uint64_t free_list_position_first;
+    uint64_t free_list_position_second;
+    uint64_t free_list_size_first;
+    uint64_t free_list_size_second;
+    uint64_t trim_list_position_first;
+    uint64_t trim_list_position_second;
+    uint64_t trim_list_size;
+    uint64_t lmt_position_first;
+    uint64_t lmt_position_second;
+    uint64_t lmt_size;
+    uint64_t redolog_position_first;
+    uint64_t redolog_position_second;
+    uint64_t redolog_size;
+    /**update after save metadata**/
+    int64_t  redolog_phase;
+    uint8_t  current_metadata;
+    uint8_t  current_redolog;
+    char md5_first[MD5_RESULT_LEN];
+    char md5_second[MD5_RESULT_LEN];
+    /***/
+    char create_time[32];
+};
+
+uint64_t PfspdkEngine::sync_write
+    spdk_nvme_bytes_to_blocks(offset, &lba, buf_size, &lba_cnt)
+    spdk_nvme_ns_cmd_write_with_md(ns->ns, qpair[0], buffer, NULL, lba, (uint32_t)lba_cnt, spdk_sync_io_complete, &result, 0, 0, 0)
+    spdk_nvme_qpair_process_completions(qpair[0], 1)
+
+
+uint64_t PfAioEngine::sync_write(void *buffer, uint64_t size, uint64_t offset)    
+    return pwrite(fd, buffer, size, offset)
+
+
+
+
+
+
+性能:
+单盘50W 的 iops, 4盘: 170W
+
+
+
+
+int PfFlashStore::do_write(IoSubTask* io)
+
+
+客户端接口: common/include/pf_client_api.h
+
+
+
+hash表测试:
+common/unittest/hash/main.c -> int main(int argc, char *argv[])
+ht_init(&ht, HT_KEY_CONST | HT_VALUE_CONST, 0.05, HT_INITIAL_SIZE); -> 重新调整hash表大小
+
+---------- IO路经,iopath, IO测试, pfdd, dd工具, IO路径, iopath, io路径, 写IO ----------
+common/src/pf_pfdd.cpp -> int main(int argc, char* argv[])
+string rw, bs_str, ifname, ofname, vol_name, cfg_file, snapshot_name;
+void* buf = malloc(bs);
+DeferCall _c([buf](){free (buf);}); -> 析构用作deffer语义
+struct PfClientVolume* vol = pf_open_volume(vol_name.c_str(), cfg_file.c_str(), snapshot_name.c_str(), S5_LIB_VER) -> 开卷
+    int PfClientVolume::do_open(bool reopen, bool is_aof)
+        event_queue = runtime_ctx->vol_proc->event_queue
+        ...
+        init_app_ctx(cfg, 0, 0, 0) -> 初始化上下文
+            ctx->init(cfg, io_depth, max_vol_cnt, 0 /* 0 for shared connection*/, io_timeout)
+                vol_proc = new PfVolumeEventProc(this)
+                vol_proc->start() -> void * thread_proc_eventq(void* arg)
+                    pThis->process_event(t->type, t->arg_i, t->arg_p, t->arg_q)
+                        int PfClientVolume::process_event(int event_type, int arg_i, void* arg_p)
+for(int i=0;i<count;i++)
+    pf_io_submit(vol, buf, bs, offset + i * bs, io_cbk, &arg, is_write) -> 写IO
+        auto io = volume->runtime_ctx->iocb_pool.alloc() -> 泛型, 分配对象内存池
+        io->ulp_handler = callback -> 设置上层业务回调/控制器
+        struct PfMessageHead *cmd = io->cmd_bd->cmd_bd; -> 设置命令
+        memcpy(io->data_bd->buf, buf, length) -> 第一次内存拷贝
+        cmd->opcode = is_write ? S5_OP_WRITE : S5_OP_READ
+        int rc = volume->event_queue->post_event( EVT_IO_REQ, 0, io, volume) -> 提交写事件,由其他线程处理事件 -> int PfClientVolume::process_event(int event_type, int arg_i, void* arg_p)
+            current_queue->enqueue_nolock(S5Event{ type, arg_i, arg_p , arg_q})
+            write(event_fd, &event_delta, sizeof(event_delta)) -> 通知事件线程处理
+    sem_wait(&arg.sem)
+    ssize_t rc = ::write(fd, buf, bs);
+
+
+int PfClientVolume::process_event(int event_type, int arg_i, void* arg_p)
+    case EVT_IO_REQ
+        PfClientIocb* io = (PfClientIocb*)arg_p;
+        if(shards[shard_index].is_local) -> 本地落盘(比如超融合场景)
+            PfClientStore* local_store = get_local_store(shard_index)
+            local_store->do_write(&io->io_subtasks[0]) -> 本地写 -> int PfClientStore::do_write(IoSubTask* io)
+                ioengine->submit_io(io, entry->offset + offset_in_block(cmd->offset, in_obj_offset_mask), cmd->length) -> 提交本地写IO
+            ...
+        else -> 将IO发送到服务端
+            struct PfConnection* conn = get_shard_conn(shard_index) -> 获取连接
+            io_cmd->meta_ver = (uint16_t)meta_ver;
+            BufferDescriptor* rbd = runtime_ctx->reply_pool.alloc()
+            int rc = conn->post_recv(rbd);
+            cmd_bd->cmd_bd->rkey = io->data_bd->mrs[((PfRdmaConnection*)conn)->dev_ctx->idx]->rkey -> RDMA 从连接中获取远程键
+            rc = conn->post_send(cmd_bd) -> 提交IO命令
+                buf->wr_op = RDMA_WR_SEND -> 设置IO操作为发送(即发送BULK描述信息)
+                wr.opcode = IBV_WR_SEND
+                wr.send_flags = IBV_SEND_SIGNALEDsge.addr = (uint64_t)buf->buf
+                sge.lkey = buf->mrs[this->dev_ctx->idx]->lkey
+                ibv_post_send(rdma_id->qp, &wr, &bad_wr) -> 提交工作请求 -> 触发服务端接收到IO描述: if(bd->wr_op == WrOpcode::RDMA_WR_RECV )
+
+
+
+服务端启动事件处理线程:
+rc = app_context.rdma_server->init(RDMA_PORT_BASE)
+    int PfRdmaServer::init(int port)
+        static void *rdma_server_event_proc(void* arg)
+            int PfRdmaServer::on_connect_request
+                conn->dev_ctx = build_context(id->verbs)
+                    init_rdmd_cq_poller(&rdma_dev_ctx->prdc_poller_ctx[pindex], pindex, rdma_dev_ctx, rdma_context) -> 初始化RDMA轮询完成队列的线程
+                        poller->prp_cq = ibv_create_cq(rdma_ctx, 512, NULL, poller->prp_comp_channel, 0)
+                        ibv_req_notify_cq(poller->prp_cq, 0)
+                        poller->poller.init("rdma_cq_poller", 1024)
+                            epfd = epoll_create(max_fd_count)
+                        int rc = poller->poller.add_fd(poller->prp_comp_channel->fd, EPOLLIN, on_rdma_cq_event, poller)
+                            ...
+                            conn->on_work_complete(msg, (WcStatus)wc[i].status, conn, NULL) -> 
+                rc = rdma_create_qp(id, conn->dev_ctx->pd, &qp_attr)
+                conn->connection_info = get_rdma_desc(id, false)
+                conn->on_work_complete = server_on_rdma_network_done
+                rc = rdma_accept(id, &cm_params)
+
+服务端接收数据:
+static int server_on_rdma_network_done(BufferDescriptor* bd, WcStatus complete_status, PfConnection* _conn, void* cbk_data)
+if(bd->wr_op == WrOpcode::RDMA_WR_RECV )
+    conn->post_read(iocb->data_bd, bd->cmd_bd->buf_addr, bd->cmd_bd->rkey) -> 收到客户端RDMA的SEND请求后, 将客户端数据读到服务端
+        buf->wr_op = RDMA_WR_READ;
+        wr.opcode = IBV_WR_RDMA_READ;
+        wr.send_flags = IBV_SEND_SIGNALED;
+        ibv_post_send -> 读完后, 在网络完成回调(server_on_rdma_network_done)中触发:
+        else if (bd->wr_op == WrOpcode::RDMA_WR_READ) -> 读取客户端数据成功
+            PfServerIocb *iocb = bd->server_iocb
+            if (spdk_engine_used()) -> 如果是SPDK引擎, 加锁提交IO事件(分发事件)
+                ((PfSpdkQueue *)(conn->dispatcher->event_queue))->post_event_locked(EVT_IO_REQ, 0, iocb) -> int PfDispatcher::process_event
+            else
+                conn->dispatcher->event_queue->post_event(EVT_IO_REQ, 0, iocb);
+
+        
+分发器处理事件
+int PfDispatcher::process_event
+case EVT_IO_REQ:
+    rc = dispatch_io((PfServerIocb*)arg_p) -> 分发事件 -> int PfDispatcher::dispatch_io(PfServerIocb *iocb)
+        uint32_t shard_index = (uint32_t)OFFSET_TO_SHARD_INDEX(cmd->offset); -> 计算分片
+        PfShard * s = vol->shards[shard_index]
+        switch(cmd->opcode)
+            case S5_OP_WRITE: -> 写IO
+                stat.wr_cnt++;
+                return dispatch_write(iocb, vol, s) -> int PfDispatcher::dispatch_write
+                    PfMessageHead* cmd = iocb->cmd_bd->cmd_bd
+                    iocb->setup_subtask(s, cmd->opcode) -> 根据副本数,设置子任务
+                    for (int i = 0; i < vol->rep_count; i++)
+                        rc = s->replicas[i]->submit_io(&iocb->io_subtasks[i]) -> 遍历副本以及提交到副本IO -> disk->event_queue->post_event(EVT_IO_REQ, 0, subtask) -> int PfReplicator::process_event
+
+副本器处理事件:
+int PfReplicator::process_event
+    case EVT_IO_REQ:
+        return begin_replicate_io((IoSubTask*)arg_p) -> 开始执行副本IO
+            PfConnection* c = (PfConnection*)conn_pool->get_conn((int)t->store_id); -> 获取连接
+            if(!c->get_throttle()) -> 限流
+            PfClientIocb* io = iocb_pool.alloc()
+            memcpy(io->cmd_bd->cmd_bd, t->parent_iocb->cmd_bd->cmd_bd, sizeof(PfMessageHead))
+            t->opcode = PfOpCode::S5_OP_REPLICATE_WRITE -> 设置操作码为副本写
+            BufferDescriptor* rbd = mem_pool.reply_pool.alloc()
+            rc = c->post_recv(rbd) -> 接收IO描述(IO头部信息) -> server_on_rdma_network_done
+                buf->wr_op = RDMA_WR_RECV
+                ibv_post_recv(rdma_id->qp, &wr, &bad_wr)
+            io->reply_bd = rbd
+            rc = c->post_send(io->cmd_bd) -> 通过连接提交IO到其他副本(所在的服务器)
+                buf->wr_op = RDMA_WR_SEND
+                wr.opcode = IBV_WR_SEND
+                ibv_post_send(rdma_id->qp, &wr, &bad_wr) -> server_on_rdma_network_done
+                    else if(bd->wr_op == WrOpcode::RDMA_WR_SEND) -> 本次IO完成, 继续接收下一个IO
+                        iocb->re_init();
+                        conn->post_recv(iocb->cmd_bd);
+
+其他副本节点收到主节点的副本IO:
+int PfFlashStore::process_event
+    case EVT_IO_REQ:
+        case PfOpCode::S5_OP_REPLICATE_WRITE:
+            do_write((IoSubTask*)arg_p); -> 将IO写入后端全闪存储 -> int PfFlashStore::do_write(IoSubTask* io)
+                PfMessageHead* cmd = io->parent_iocb->cmd_bd->cmd_bd
+                BufferDescriptor* data_bd = io->parent_iocb->data_bd
+                lmt_key key = {VOLUME_ID(io->rep_id), (int64_t)vol_offset_to_block_slba(cmd->offset, head.objsize_order), 0, 0} -> 每64MB一个key
+                auto block_pos = obj_lmt.find(key)
+                if (unlikely(block_pos == obj_lmt.end())) -> 没找到块则新分配,并记录重做日志
+                    int obj_id = free_obj_queue.dequeue()
+                    entry = lmt_entry_pool.alloc()
+                    obj_lmt[key] = entry;
+                    int rc = redolog->log_allocation(&key, entry, free_obj_queue.head);
+                else -> 之前存在块记录
+                    ...
+                    ioengine->submit_io(io, entry->offset + offset_in_block(cmd->offset, in_obj_offset_mask), cmd->length) -> 将IO提交到引擎,准备落盘
+                    int PfspdkEngine::submit_io -> SPDK引擎
+                        if (spdk_nvme_bytes_to_blocks(media_offset, &lba, media_len, &lba_cnt) != 0) -> 写元数据
+                        if (IS_READ_OP(io->opcode)) -> 读IO
+                            spdk_nvme_ns_cmd_read_with_md(ns->ns, qpair[1], data_bd->buf, NULL, lba, (uint32_t)lba_cnt, spdk_io_complete, io, 0, 0, 0)
+                        esle -> 写IO
+                            spdk_nvme_ns_cmd_write_with_md(ns->ns, qpair[1], data_bd->buf, NULL, lba, (uint32_t)lba_cnt, spdk_io_complete, io, 0, 0, 0);
+                            void PfspdkEngine::spdk_io_complete(void* ctx, const struct spdk_nvme_cpl* cpl) -> 写IO完成
+                                io->ops->complete(io, PfMessageStatus::MSG_STATUS_SUCCESS) -> 在初始化内存池(int PfDispatcher::init_mempools)的时候静态注册: static struct TaskCompleteOps _server_task_complete_ops={ server_complete , server_complete_with_metaver };
+                    or int PfAioEngine::submit_io -> AIO引擎
+                        io_prep_pread(&io->aio_cb, fd, data_bd->buf, media_len, media_offset)
+                        or
+                        io_prep_pwrite(&io->aio_cb, fd, data_bd->buf, media_len, media_offset)
+                        return submit_batch() -> 批量提交
+
+static void server_complete(SubTask* t, PfMessageStatus comp_status)
+    ((PfServerIocb*)t->parent_iocb)->conn->dispatcher->event_queue->post_event(EVT_IO_COMPLETE, 0, t) -> 给分发器提交完成事件 -> int PfDispatcher::process_event
+        case EVT_IO_COMPLETE:
+            rc = dispatch_complete((SubTask*)arg_p);
+                if(iocb->task_mask == 0) -> 副本IO任务完成后,回复客户端IO完成
+                    reply_io_to_client(iocb)
+                        if (io_elapse_time > 2000) -> 慢IO
+                        rc = iocb->conn->post_send(iocb->reply_bd); -> 回复客户端, 触发客户端RDMA处理事件: client_on_rdma_network_done
+
+static int client_on_rdma_network_done
+    if (bd->wr_op == RDMA_WR_RECV)
+        PfClientIocb* iocb = conn->client_ctx->pick_iocb(bd->reply_bd->command_id, bd->reply_bd->command_seq) -> 客户端获取服务端的RDMA的IO回复
+            PfClientIocb* io = &iocb_pool.data[cid]
+        iocb->reply_bd = bd
+        iocb->volume->event_queue->post_event(EVT_IO_COMPLETE, complete_status, bd, iocb->volume) -> 给卷事件线程提交一个IO完成事件 -> int PfClientVolume::process_event(int event_type, int arg_i, void* arg_p)
+            client_do_complete(arg_i, (BufferDescriptor*)arg_p) -> 客户端完成IO
+                ulp_io_handler h = io->ulp_handler
+                if (wr_bd->wr_op == TCP_WR_RECV || wr_bd->wr_op == RDMA_WR_RECV) -> 客户端接收到数据
+                    PfMessageHead* io_cmd = io->cmd_bd->cmd_bd
+                    runtime_ctx->reply_pool.free(io->reply_bd)
+                    if(io->cmd_bd->cmd_bd->opcode == S5_OP_READ) -> 读IO完成
+                        iov_from_buf(io->user_iov, io->user_iov_cnt, io->data_bd->buf, io->data_bd->data_len) -> 拷贝向量IO或普通IO
+                        or memcpy(io->user_buf, io->data_bd->buf, io->data_bd->data_len);
+                    runtime_ctx->free_iocb(io) -> 释放资源
+                    h(arg, s) -> 执行业务回调(ULP) -> void io_cbk(void* cbk_arg, int complete_status)
+                        sem_post(&w->sem) -> 通过信号量通知其他线程
+---------- IO路经,iopath, IO测试, pfdd, dd工具, IO路径, iopath, io路径, 写IO END ----------
+
+卷/分片/副本/偏移,计算公式:
+#define VOL_ID_TO_VOL_INDEX(x)((x)>>24)
+#define VOL_ID_TO_SHARD_INDEX(x)(((x)>>4) & 0x0fffff)
+#define OFFSET_TO_SHARD_INDEX(offset) ((offset) >> (LBA_LENGTH_ORDER + SHARD_LBA_CNT_ORDER))
+#define debug_data_len 10	///< debug data length.
+
+
+初始化完成回调:
+conn_pool->init(128, tcp_poller, this, 0, rep_iodepth, RDMA_TYPE, replicator_on_rdma_network_done, replicator_on_conn_close)
+    replicator_on_rdma_network_done
+    int PfConnectionPool::init -> 设置完成回调
+        on_work_complete = _handler
+        on_conn_closed = close_handler
+        this->vol_id = vol_id
+        this->conn_type = type
+
+replicator_on_rdma_network_done
+    iocb = conn->replicator->pick_iocb(reply->command_id, reply->command_seq)
+    conn->put_throttle() -> 飞行队列减引用计数
+    return conn->replicator->event_queue->post_event(EVT_IO_COMPLETE, 0, iocb) -> 向副本事件队列提交IO完成事件 -> int PfReplicator::process_event
+        return process_io_complete((PfClientIocb*)arg_p, arg_i)
+            mem_pool.reply_pool.free(iocb->reply_bd) -> 副本IO则直接释放资源
+
+
+
+心跳:
+void PfTcpServer::listen_proc()
+while 1
+int PfTcpServer::accept_connection()
+    S5LOG_ERROR("TODO: add to heartbead checker list");
+
+
+事件类型汇总:
+enum S5EventType : int
+{
+	EVT_SYNC_INVOKE=1,
+	EVT_EPCTL_DEL,
+	EVT_EPCTL_ADD,
+	EVT_IO_REQ,
+	EVT_IO_COMPLETE,
+	EVT_IO_TIMEOUT,
+	EVT_REOPEN_VOLUME,
+	EVT_VOLUME_RECONNECT,
+	EVT_SEND_HEARTBEAT,
+	EVT_THREAD_EXIT,
+	EVT_RECV_REQ,
+	EVT_SEND_REQ,
+	EVT_COW_READ,
+	EVT_COW_WRITE,
+	EVT_RECOVERY_READ_IO,
+	EVT_CONN_CLOSED,
+	EVT_SAVEMD,
+	EVT_WAIT_OWNER_LOCK,
+};
+
+
+轮询完成队列:
+#define MAX_WC_CNT 256
+static void *cq_poller_proc(void *arg_)
+
+
+设置线程启动函数:
+thread_proc =
+如: thread_proc = thread_proc_spdkr
+
+
+心跳检测:
+void PfClientAppCtx::heartbeat_once()
+1. 连接状态异常或者连接上飞行的心跳数大于2个时,将连接关闭
+2. 否则, 每次选4个发送心跳(conn->send_heartbeat()), 暂未实现
+
+
+设计:
+1. 客户端与引擎间: 打开卷的时候开启一个线程, 定时检测卷上的IO统计, 比如最近60s内没有IO时, 需要发送心跳给服务端
+2. 引擎之间: 可考虑在连接上记录最后IO时间, 如果最近60s没有IO, 则触发心跳, 如果心跳超时,则关闭连接,排除引擎
+
+
+PfConnection* PfConnectionPool::get_conn
+    connect_to_server
+
+
+操作码:
+#define _OP_CODE_(x, dir) ((x<<2)|dir)
+enum PfOpCode : uint8_t {
+	S5_OP_WRITE = _OP_CODE_(0, _WRITE_OP_),
+	S5_OP_READ  = _OP_CODE_(0, _READ_OP_),
+	S5_OP_HEARTBEAT = _OP_CODE_(1, _NODATA_OP_),
+	S5_OP_REPLICATE_WRITE = _OP_CODE_(1, _WRITE_OP_),
+	S5_OP_COW_READ = _OP_CODE_(2, _READ_OP_),
+	S5_OP_COW_WRITE = _OP_CODE_(2, _WRITE_OP_),
+	S5_OP_RECOVERY_READ = _OP_CODE_(3, _READ_OP_),
+	S5_OP_RECOVERY_WRITE = _OP_CODE_(3, _WRITE_OP_),
+	S5_OP_RPC_ALLOC_BLOCK = _OP_CODE_(4, _NODATA_OP_),
+	S5_OP_RPC_DELETE_BLOCK = _OP_CODE_(5, _NODATA_OP_),
+};
+
+
+
+docker:
+s63, run pf
+docker run -it -d --privileged --cap-add=ALL --name pf  -v /home/xb/project/PureFlash:/home/xb/project/PureFlash pureflash/pureflash-dev:1.8.4
+
+
+
+编译, build:
+apt install meson #for spdk
+pyelftools
+
+#dpdk
+apt-get install -y libnuma-dev
+apt-get install libssl-dev
+
+
+spdk
+参考daos:
+RUN: ./configure --prefix=/opt/daos/prereq/debug/spdk --disable-tests --disable-unit-tests --disable-apps --without-vhost --without-crypto --without-pmdk --without-rbd --without-iscsi-initiator --without-isal --without-vtune --with-shared --target-arch=haswell
+
+libspdk_nvme
+spdk_nvme
+
+apt remove xxx
+apt autoremove
+apt autoclean && sudo apt autoremove
+
+
+ninja会将 cmakelist.txt 生成为ninja的配置文件(build.ninja)
+
+
+

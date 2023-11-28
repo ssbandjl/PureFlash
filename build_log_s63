@@ -1,0 +1,693 @@
+root@9222c459201b:/home/xb/project/PureFlash# export PUREFLASH_HOME=`pwd`
+root@9222c459201b:/home/xb/project/PureFlash# mkdir build_deb; cd build_deb
+root@9222c459201b:/home/xb/project/PureFlash/build_deb# cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=`which ninja` ..
+-- The C compiler identification is GNU 11.3.0
+-- The CXX compiler identification is GNU 11.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+os is ubuntu_22.04_x86_64
+Begin to compile SPDK
+Using default SPDK env in /home/xb/project/PureFlash/thirdParty/spdk/lib/env_dpdk
+Using default DPDK in /home/xb/project/PureFlash/thirdParty/spdk/dpdk/build
+Configuring ISA-L (logfile: /home/xb/project/PureFlash/thirdParty/spdk/isa-l/spdk-isal.log)...done.
+Configuring ISA-L-crypto (logfile: /home/xb/project/PureFlash/thirdParty/spdk/isa-l-crypto/spdk-isal-crypto.log)...done.
+Creating mk/config.mk...done.
+Creating mk/cc.flags.mk...done.
+Type 'make' to build.
+make[1]: Nothing to be done for 'all'.
+/bin/sh: 1: meson: not found
+make[1]: *** [Makefile:202: /home/xb/project/PureFlash/thirdParty/spdk/dpdk/build-tmp] Error 127
+make: *** [/home/xb/project/PureFlash/thirdParty/spdk/mk/spdk.subdirs.mk:16: dpdkbuild] Error 2
+make: *** Waiting for unfinished jobs....
+-- Looking for include file rdma/rdma_cma.h
+-- Looking for include file rdma/rdma_cma.h - found
+Begin to compile isa-l_crypto
+libtoolize: putting auxiliary files in AC_CONFIG_AUX_DIR, 'build-aux'.
+libtoolize: linking file 'build-aux/ltmain.sh'
+libtoolize: Consider adding 'AC_CONFIG_MACRO_DIRS([m4])' to configure.ac,
+libtoolize: and rerunning libtoolize and aclocal.
+libtoolize: Consider adding '-I m4' to ACLOCAL_AMFLAGS in Makefile.am.
+configure.ac:50: warning: The macro `AC_PROG_CC_STDC' is obsolete.
+configure.ac:50: You should run autoupdate.
+./lib/autoconf/c.m4:1666: AC_PROG_CC_STDC is expanded from...
+configure.ac:50: the top level
+configure.ac:68: warning: The macro `AC_TRY_COMPILE' is obsolete.
+configure.ac:68: You should run autoupdate.
+./lib/autoconf/general.m4:2847: AC_TRY_COMPILE is expanded from...
+configure.ac:68: the top level
+configure.ac:23: installing 'build-aux/compile'
+configure.ac:12: installing 'build-aux/missing'
+Makefile.am: installing 'build-aux/depcomp'
+
+----------------------------------------------------------------
+Initialized build system. For a common configuration please run:
+----------------------------------------------------------------
+
+./configure --prefix=/usr --libdir=/usr/lib
+
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether build environment is sane... yes
+checking for a race-free mkdir -p... /usr/bin/mkdir -p
+checking for gawk... no
+checking for mawk... mawk
+checking whether make sets $(MAKE)... yes
+checking whether make supports nested variables... yes
+checking how to create a pax tar archive... gnutar
+checking whether make supports the include directive... yes (GNU style)
+checking for gcc... /usr/bin/cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether /usr/bin/cc accepts -g... yes
+checking for /usr/bin/cc option to enable C11 features... none needed
+checking whether /usr/bin/cc understands -c and -o together... yes
+checking dependency style of /usr/bin/cc... gcc3
+checking dependency style of /usr/bin/cc... gcc3
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for wchar.h... yes
+checking for minix/config.h... no
+checking whether it is safe to define __EXTENSIONS__... yes
+checking whether _XOPEN_SOURCE should be defined... no
+checking whether make supports nested variables... (cached) yes
+checking how to print strings... printf
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for fgrep... /usr/bin/grep -F
+checking for ld used by /usr/bin/cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for BSD- or MS-compatible name lister (nm)... /usr/bin/nm -B
+checking the name lister (/usr/bin/nm -B) interface... BSD nm
+checking whether ln -s works... yes
+checking the maximum length of command line arguments... 1572864
+checking how to convert x86_64-pc-linux-gnu file names to x86_64-pc-linux-gnu format... func_convert_file_noop
+checking how to convert x86_64-pc-linux-gnu file names to toolchain format... func_convert_file_noop
+checking for /usr/bin/ld option to reload object files... -r
+checking for objdump... objdump
+checking how to recognize dependent libraries... pass_all
+checking for dlltool... no
+checking how to associate runtime and link libraries... printf %s\n
+checking for ar... ar
+checking for archiver @FILE support... @
+checking for strip... strip
+checking for ranlib... ranlib
+checking command to parse /usr/bin/nm -B output from /usr/bin/cc object... ok
+checking for sysroot... no
+checking for a working dd... /usr/bin/dd
+checking how to truncate binary pipes... /usr/bin/dd bs=4096 count=1
+checking for mt... no
+checking if : is a manifest tool... no
+checking for dlfcn.h... yes
+checking for objdir... .libs
+checking if /usr/bin/cc supports -fno-rtti -fno-exceptions... no
+checking for /usr/bin/cc option to produce PIC... -fPIC -DPIC
+checking if /usr/bin/cc PIC flag -fPIC -DPIC works... yes
+checking if /usr/bin/cc static flag -static works... yes
+checking if /usr/bin/cc supports -c -o file.o... yes
+checking if /usr/bin/cc supports -c -o file.o... (cached) yes
+checking whether the /usr/bin/cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... yes
+checking for a sed that does not truncate output... (cached) /usr/bin/sed
+checking whether Intel CET is enabled... yes
+checking for yasm... no
+no yasm
+checking for optional yasm SHA-NI support... no
+checking for nasm... yes
+checking for modern nasm... yes
+checking for optional nasm AVX512 support... yes
+checking for additional nasm AVX512 support... yes
+checking for optional nasm SHA-NI support... yes
+Using nasm args target "linux" "-f elf64"
+checking for limits.h... yes
+checking for stdint.h... (cached) yes
+checking for stdlib.h... (cached) yes
+checking for string.h... (cached) yes
+checking for inline... inline
+checking for size_t... yes
+checking for uint16_t... yes
+checking for uint32_t... yes
+checking for uint64_t... yes
+checking for uint8_t... yes
+checking for GNU libc compatible malloc... yes
+checking for memmove... yes
+checking for memset... yes
+checking that generated files are newer than configure... done
+configure: creating ./config.status
+config.status: creating Makefile
+config.status: creating libisal_crypto.pc
+config.status: executing depfiles commands
+config.status: executing libtool commands
+
+        isa-l_crypto 2.23.0
+        =====
+
+        prefix:                 /usr
+        sysconfdir:             ${prefix}/etc
+        libdir:                 ${exec_prefix}/lib
+        includedir:             ${prefix}/include
+
+        compiler:               /usr/bin/cc
+        cflags:                 -g -O2
+        ldflags:                
+
+        debug:                  no
+
+make --no-print-directory all-am
+make[1]: Nothing to be done for 'all-am'.
+make --no-print-directory install-am
+ /usr/bin/mkdir -p '/usr/lib'
+ /bin/bash ./libtool   --mode=install /usr/bin/install -c   libisal_crypto.la '/usr/lib'
+libtool: install: /usr/bin/install -c .libs/libisal_crypto.so.2.0.23 /usr/lib/libisal_crypto.so.2.0.23
+libtool: install: (cd /usr/lib && { ln -s -f libisal_crypto.so.2.0.23 libisal_crypto.so.2 || { rm -f libisal_crypto.so.2 && ln -s libisal_crypto.so.2.0.23 libisal_crypto.so.2; }; })
+libtool: install: (cd /usr/lib && { ln -s -f libisal_crypto.so.2.0.23 libisal_crypto.so || { rm -f libisal_crypto.so && ln -s libisal_crypto.so.2.0.23 libisal_crypto.so; }; })
+libtool: install: /usr/bin/install -c .libs/libisal_crypto.lai /usr/lib/libisal_crypto.la
+libtool: install: /usr/bin/install -c .libs/libisal_crypto.a /usr/lib/libisal_crypto.a
+libtool: install: chmod 644 /usr/lib/libisal_crypto.a
+libtool: install: ranlib /usr/lib/libisal_crypto.a
+libtool: finish: PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/sbin" ldconfig -n /usr/lib
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/lib
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the '-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the 'LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the 'LD_RUN_PATH' environment variable
+     during linking
+   - use the '-Wl,-rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to '/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+ /usr/bin/mkdir -p '/usr/include'
+ /usr/bin/install -c -m 644  isa-l_crypto.h '/usr/include/.'
+ /usr/bin/mkdir -p '/usr/lib/pkgconfig'
+ /usr/bin/install -c -m 644 libisal_crypto.pc '/usr/lib/pkgconfig'
+ /usr/bin/mkdir -p '/usr/include/isa-l_crypto'
+ /usr/bin/install -c -m 644 include/test.h include/types.h include/endian_helper.h include/aes_cbc.h include/aes_gcm.h include/aes_keyexp.h include/aes_xts.h include/md5_mb.h include/mh_sha1.h include/mh_sha1_murmur3_x64_128.h include/mh_sha256.h include/multi_buffer.h include/rolling_hashx.h include/sha1_mb.h include/sha256_mb.h include/sha512_mb.h include/sm3_mb.h '/usr/include/isa-l_crypto'
+Begin to compile sg3_utils
+Preparing the sg3_utils build system...please wait
+
+Found GNU Autoconf version 2.71
+Found GNU Automake version 1.16.5
+Found GNU Libtool version 2.4.6
+
+Automatically preparing build ... done
+
+The sg3_utils build system is now prepared.  To build here, run:
+  ./configure
+  make
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether build environment is sane... yes
+checking for a race-free mkdir -p... /usr/bin/mkdir -p
+checking for gawk... no
+checking for mawk... mawk
+checking whether make sets $(MAKE)... yes
+checking whether make supports nested variables... yes
+checking whether to enable maintainer-specific portions of Makefiles... no
+checking for gcc... /usr/bin/cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether /usr/bin/cc accepts -g... yes
+checking for /usr/bin/cc option to enable C11 features... none needed
+checking whether /usr/bin/cc understands -c and -o together... yes
+checking whether make supports the include directive... yes (GNU style)
+checking dependency style of /usr/bin/cc... gcc3
+checking for ar... ar
+checking the archiver (ar) interface... ar
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking how to print strings... printf
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for fgrep... /usr/bin/grep -F
+checking for ld used by /usr/bin/cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for BSD- or MS-compatible name lister (nm)... /usr/bin/nm -B
+checking the name lister (/usr/bin/nm -B) interface... BSD nm
+checking whether ln -s works... yes
+checking the maximum length of command line arguments... 1572864
+checking how to convert x86_64-pc-linux-gnu file names to x86_64-pc-linux-gnu format... func_convert_file_noop
+checking how to convert x86_64-pc-linux-gnu file names to toolchain format... func_convert_file_noop
+checking for /usr/bin/ld option to reload object files... -r
+checking for objdump... objdump
+checking how to recognize dependent libraries... pass_all
+checking for dlltool... no
+checking how to associate runtime and link libraries... printf %s\n
+checking for archiver @FILE support... @
+checking for strip... strip
+checking for ranlib... ranlib
+checking command to parse /usr/bin/nm -B output from /usr/bin/cc object... ok
+checking for sysroot... no
+checking for a working dd... /usr/bin/dd
+checking how to truncate binary pipes... /usr/bin/dd bs=4096 count=1
+checking for mt... no
+checking if : is a manifest tool... no
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking for objdir... .libs
+checking if /usr/bin/cc supports -fno-rtti -fno-exceptions... no
+checking for /usr/bin/cc option to produce PIC... -fPIC -DPIC
+checking if /usr/bin/cc PIC flag -fPIC -DPIC works... yes
+checking if /usr/bin/cc static flag -static works... yes
+checking if /usr/bin/cc supports -c -o file.o... yes
+checking if /usr/bin/cc supports -c -o file.o... (cached) yes
+checking whether the /usr/bin/cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... yes
+checking for egrep... (cached) /usr/bin/grep -E
+checking for byteswap.h... yes
+checking for stdatomic.h... yes
+checking for getopt_long... yes
+checking for posix_fadvise... yes
+checking for posix_memalign... yes
+checking for gettimeofday... yes
+checking for sysconf... yes
+checking for lseek64... yes
+checking for srand48_r... yes
+checking for library containing pthread_create... none required
+checking for pthread_cancel... yes
+checking for pthread_kill... yes
+checking for library containing clock_gettime... none required
+checking for clock_gettime... yes
+checking how to run the C preprocessor... /usr/bin/cc -E
+checking for sys/random.h... yes
+checking for getrandom()... yes
+checking for linux/nvme_ioctl.h... yes
+checking for linux/types.h... yes
+checking for linux/bsg.h... yes
+checking for linux/kdev_t.h... yes
+checking for linux/major.h... yes
+checking for linux/types.h... (cached) yes
+checking that generated files are newer than configure... done
+configure: creating ./config.status
+config.status: creating Makefile
+config.status: creating include/Makefile
+config.status: creating lib/Makefile
+config.status: creating src/Makefile
+config.status: creating doc/Makefile
+config.status: creating scripts/Makefile
+config.status: creating config.h
+config.status: config.h is unchanged
+config.status: executing depfiles commands
+config.status: executing libtool commands
+configure:
+-----------------------------------------------------------------------------
+sg3_utils-1.49 configuration:
+host operating system:  x86_64-pc-linux-gnu
+default C compiler:     /usr/bin/cc
+binary install path:    /usr/local/bin
+scripts install path:   /usr/local/bin
+man page install path:  /usr/local/share/man
+-----------------------------------------------------------------------------
+
+make  all-recursive
+make[1]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils'
+Making all in include
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/include'
+make[2]: Nothing to be done for 'all'.
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/include'
+Making all in lib
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/lib'
+make[2]: Nothing to be done for 'all'.
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/lib'
+Making all in src
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/src'
+make[2]: Nothing to be done for 'all'.
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/src'
+Making all in doc
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/doc'
+make[2]: Nothing to be done for 'all'.
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/doc'
+Making all in scripts
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/scripts'
+make[2]: Nothing to be done for 'all'.
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/scripts'
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils'
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils'
+make[1]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils'
+Making install in include
+make[1]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/include'
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/include'
+make[2]: Nothing to be done for 'install-exec-am'.
+ /usr/bin/mkdir -p '/usr/local/include/scsi'
+ /usr/bin/install -c -m 644 sg_lib.h sg_lib_data.h sg_lib_names.h sg_cmds.h sg_cmds_basic.h sg_cmds_extra.h sg_cmds_mmc.h sg_json.h sg_json_sg_lib.h sg_pr2serr.h sg_unaligned.h sg_pt.h sg_pt_nvme.h sg_linux_inc.h sg_io_linux.h sg_pt_linux.h '/usr/local/include/scsi'
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/include'
+make[1]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/include'
+Making install in lib
+make[1]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/lib'
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/lib'
+ /usr/bin/mkdir -p '/usr/local/lib'
+ /bin/bash ../libtool   --mode=install /usr/bin/install -c   libsgutils2.la '/usr/local/lib'
+libtool: install: /usr/bin/install -c .libs/libsgutils2-1.49.so.2.0.0 /usr/local/lib/libsgutils2-1.49.so.2.0.0
+libtool: install: (cd /usr/local/lib && { ln -s -f libsgutils2-1.49.so.2.0.0 libsgutils2-1.49.so.2 || { rm -f libsgutils2-1.49.so.2 && ln -s libsgutils2-1.49.so.2.0.0 libsgutils2-1.49.so.2; }; })
+libtool: install: (cd /usr/local/lib && { ln -s -f libsgutils2-1.49.so.2.0.0 libsgutils2.so || { rm -f libsgutils2.so && ln -s libsgutils2-1.49.so.2.0.0 libsgutils2.so; }; })
+libtool: install: /usr/bin/install -c .libs/libsgutils2.lai /usr/local/lib/libsgutils2.la
+libtool: install: /usr/bin/install -c .libs/libsgutils2.a /usr/local/lib/libsgutils2.a
+libtool: install: chmod 644 /usr/local/lib/libsgutils2.a
+libtool: install: ranlib /usr/local/lib/libsgutils2.a
+libtool: finish: PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/sbin" ldconfig -n /usr/local/lib
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/local/lib
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the '-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the 'LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the 'LD_RUN_PATH' environment variable
+     during linking
+   - use the '-Wl,-rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to '/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+make[2]: Nothing to be done for 'install-data-am'.
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/lib'
+make[1]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/lib'
+Making install in src
+make[1]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/src'
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/src'
+ /usr/bin/mkdir -p '/usr/local/bin'
+  /bin/bash ../libtool   --mode=install /usr/bin/install -c sg_bg_ctl sg_compare_and_write sg_decode_sense sg_format sg_get_config sg_get_elem_status sg_get_lba_status sg_ident sg_inq sg_logs sg_luns sg_modes sg_opcodes sg_persist sg_prevent sg_raw sg_rdac sg_read_attr sg_read_block_limits sg_read_buffer sg_read_long sg_readcap sg_reassign sg_referrals sg_rem_rest_elem sg_rep_density sg_rep_pip sg_rep_zones sg_requests sg_reset_wp sg_rmsn sg_rtpg sg_safte sg_sanitize sg_sat_datetime sg_sat_identify sg_sat_phy_event sg_sat_read_gplog sg_sat_set_features sg_seek sg_senddiag sg_ses sg_ses_microcode sg_start sg_stpg sg_stream_ctl sg_sync sg_timestamp sg_turs sg_unmap sg_verify sg_vpd sg_wr_mode sg_write_attr sg_write_buffer sg_write_long sg_write_same sg_write_verify sg_write_x sg_zone sg_z_act_query sg_copy_results sg_dd sg_emc_trespass sg_map sg_map26 sg_rbuf sg_read sg_reset sg_scan sg_test_rwbuf sg_xcopy sginfo sgm_dd sgp_dd '/usr/local/bin'
+libtool: install: /usr/bin/install -c .libs/sg_bg_ctl /usr/local/bin/sg_bg_ctl
+libtool: install: /usr/bin/install -c .libs/sg_compare_and_write /usr/local/bin/sg_compare_and_write
+libtool: install: /usr/bin/install -c .libs/sg_decode_sense /usr/local/bin/sg_decode_sense
+libtool: install: /usr/bin/install -c .libs/sg_format /usr/local/bin/sg_format
+libtool: install: /usr/bin/install -c .libs/sg_get_config /usr/local/bin/sg_get_config
+libtool: install: /usr/bin/install -c .libs/sg_get_elem_status /usr/local/bin/sg_get_elem_status
+libtool: install: /usr/bin/install -c .libs/sg_get_lba_status /usr/local/bin/sg_get_lba_status
+libtool: install: /usr/bin/install -c .libs/sg_ident /usr/local/bin/sg_ident
+libtool: install: /usr/bin/install -c .libs/sg_inq /usr/local/bin/sg_inq
+libtool: install: /usr/bin/install -c .libs/sg_logs /usr/local/bin/sg_logs
+libtool: install: /usr/bin/install -c .libs/sg_luns /usr/local/bin/sg_luns
+libtool: install: /usr/bin/install -c .libs/sg_modes /usr/local/bin/sg_modes
+libtool: install: /usr/bin/install -c .libs/sg_opcodes /usr/local/bin/sg_opcodes
+libtool: install: /usr/bin/install -c .libs/sg_persist /usr/local/bin/sg_persist
+libtool: install: /usr/bin/install -c .libs/sg_prevent /usr/local/bin/sg_prevent
+libtool: install: /usr/bin/install -c .libs/sg_raw /usr/local/bin/sg_raw
+libtool: install: /usr/bin/install -c .libs/sg_rdac /usr/local/bin/sg_rdac
+libtool: install: /usr/bin/install -c .libs/sg_read_attr /usr/local/bin/sg_read_attr
+libtool: install: /usr/bin/install -c .libs/sg_read_block_limits /usr/local/bin/sg_read_block_limits
+libtool: install: /usr/bin/install -c .libs/sg_read_buffer /usr/local/bin/sg_read_buffer
+libtool: install: /usr/bin/install -c .libs/sg_read_long /usr/local/bin/sg_read_long
+libtool: install: /usr/bin/install -c .libs/sg_readcap /usr/local/bin/sg_readcap
+libtool: install: /usr/bin/install -c .libs/sg_reassign /usr/local/bin/sg_reassign
+libtool: install: /usr/bin/install -c .libs/sg_referrals /usr/local/bin/sg_referrals
+libtool: install: /usr/bin/install -c .libs/sg_rem_rest_elem /usr/local/bin/sg_rem_rest_elem
+libtool: install: /usr/bin/install -c .libs/sg_rep_density /usr/local/bin/sg_rep_density
+libtool: install: /usr/bin/install -c .libs/sg_rep_pip /usr/local/bin/sg_rep_pip
+libtool: install: /usr/bin/install -c .libs/sg_rep_zones /usr/local/bin/sg_rep_zones
+libtool: install: /usr/bin/install -c .libs/sg_requests /usr/local/bin/sg_requests
+libtool: install: /usr/bin/install -c .libs/sg_reset_wp /usr/local/bin/sg_reset_wp
+libtool: install: /usr/bin/install -c .libs/sg_rmsn /usr/local/bin/sg_rmsn
+libtool: install: /usr/bin/install -c .libs/sg_rtpg /usr/local/bin/sg_rtpg
+libtool: install: /usr/bin/install -c .libs/sg_safte /usr/local/bin/sg_safte
+libtool: install: /usr/bin/install -c .libs/sg_sanitize /usr/local/bin/sg_sanitize
+libtool: install: /usr/bin/install -c .libs/sg_sat_datetime /usr/local/bin/sg_sat_datetime
+libtool: install: /usr/bin/install -c .libs/sg_sat_identify /usr/local/bin/sg_sat_identify
+libtool: install: /usr/bin/install -c .libs/sg_sat_phy_event /usr/local/bin/sg_sat_phy_event
+libtool: install: /usr/bin/install -c .libs/sg_sat_read_gplog /usr/local/bin/sg_sat_read_gplog
+libtool: install: /usr/bin/install -c .libs/sg_sat_set_features /usr/local/bin/sg_sat_set_features
+libtool: install: /usr/bin/install -c .libs/sg_seek /usr/local/bin/sg_seek
+libtool: install: /usr/bin/install -c .libs/sg_senddiag /usr/local/bin/sg_senddiag
+libtool: install: /usr/bin/install -c .libs/sg_ses /usr/local/bin/sg_ses
+libtool: install: /usr/bin/install -c .libs/sg_ses_microcode /usr/local/bin/sg_ses_microcode
+libtool: install: /usr/bin/install -c .libs/sg_start /usr/local/bin/sg_start
+libtool: install: /usr/bin/install -c .libs/sg_stpg /usr/local/bin/sg_stpg
+libtool: install: /usr/bin/install -c .libs/sg_stream_ctl /usr/local/bin/sg_stream_ctl
+libtool: install: /usr/bin/install -c .libs/sg_sync /usr/local/bin/sg_sync
+libtool: install: /usr/bin/install -c .libs/sg_timestamp /usr/local/bin/sg_timestamp
+libtool: install: /usr/bin/install -c .libs/sg_turs /usr/local/bin/sg_turs
+libtool: install: /usr/bin/install -c .libs/sg_unmap /usr/local/bin/sg_unmap
+libtool: install: /usr/bin/install -c .libs/sg_verify /usr/local/bin/sg_verify
+libtool: install: /usr/bin/install -c .libs/sg_vpd /usr/local/bin/sg_vpd
+libtool: install: /usr/bin/install -c .libs/sg_wr_mode /usr/local/bin/sg_wr_mode
+libtool: install: /usr/bin/install -c .libs/sg_write_attr /usr/local/bin/sg_write_attr
+libtool: install: /usr/bin/install -c .libs/sg_write_buffer /usr/local/bin/sg_write_buffer
+libtool: install: /usr/bin/install -c .libs/sg_write_long /usr/local/bin/sg_write_long
+libtool: install: /usr/bin/install -c .libs/sg_write_same /usr/local/bin/sg_write_same
+libtool: install: /usr/bin/install -c .libs/sg_write_verify /usr/local/bin/sg_write_verify
+libtool: install: /usr/bin/install -c .libs/sg_write_x /usr/local/bin/sg_write_x
+libtool: install: /usr/bin/install -c .libs/sg_zone /usr/local/bin/sg_zone
+libtool: install: /usr/bin/install -c .libs/sg_z_act_query /usr/local/bin/sg_z_act_query
+libtool: install: /usr/bin/install -c .libs/sg_copy_results /usr/local/bin/sg_copy_results
+libtool: install: /usr/bin/install -c .libs/sg_dd /usr/local/bin/sg_dd
+libtool: install: /usr/bin/install -c .libs/sg_emc_trespass /usr/local/bin/sg_emc_trespass
+libtool: install: /usr/bin/install -c .libs/sg_map /usr/local/bin/sg_map
+libtool: install: /usr/bin/install -c sg_map26 /usr/local/bin/sg_map26
+libtool: install: /usr/bin/install -c .libs/sg_rbuf /usr/local/bin/sg_rbuf
+libtool: install: /usr/bin/install -c .libs/sg_read /usr/local/bin/sg_read
+libtool: install: /usr/bin/install -c sg_reset /usr/local/bin/sg_reset
+libtool: install: /usr/bin/install -c .libs/sg_scan /usr/local/bin/sg_scan
+libtool: install: /usr/bin/install -c .libs/sg_test_rwbuf /usr/local/bin/sg_test_rwbuf
+libtool: install: /usr/bin/install -c .libs/sg_xcopy /usr/local/bin/sg_xcopy
+libtool: install: /usr/bin/install -c .libs/sginfo /usr/local/bin/sginfo
+libtool: install: /usr/bin/install -c .libs/sgm_dd /usr/local/bin/sgm_dd
+libtool: install: /usr/bin/install -c .libs/sgp_dd /usr/local/bin/sgp_dd
+make[2]: Nothing to be done for 'install-data-am'.
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/src'
+make[1]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/src'
+Making install in doc
+make[1]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/doc'
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/doc'
+make[2]: Nothing to be done for 'install-exec-am'.
+ /usr/bin/mkdir -p '/usr/local/share/man/man8'
+ /usr/bin/install -c -m 644 scsi_mandat.8 scsi_readcap.8 scsi_ready.8 scsi_satl.8 scsi_start.8 scsi_stop.8 scsi_temperature.8 sg3_utils.8 sg3_utils_json.8 sg_bg_ctl.8 sg_compare_and_write.8 sg_decode_sense.8 sg_format.8 sg_get_config.8 sg_get_elem_status.8 sg_get_lba_status.8 sg_ident.8 sg_inq.8 sg_logs.8 sg_luns.8 sg_modes.8 sg_opcodes.8 sg_persist.8 sg_prevent.8 sg_raw.8 sg_rdac.8 sg_read_attr.8 sg_read_block_limits.8 sg_read_buffer.8 sg_read_long.8 sg_readcap.8 sg_reassign.8 sg_referrals.8 sg_rem_rest_elem.8 sg_rep_density.8 sg_rep_pip.8 sg_rep_zones.8 sg_requests.8 sg_reset_wp.8 sg_rmsn.8 '/usr/local/share/man/man8'
+ /usr/bin/install -c -m 644 sg_rtpg.8 sg_safte.8 sg_sanitize.8 sg_sat_datetime.8 sg_sat_identify.8 sg_sat_phy_event.8 sg_sat_read_gplog.8 sg_sat_set_features.8 sg_seek.8 sg_senddiag.8 sg_ses.8 sg_ses_microcode.8 sg_start.8 sg_stpg.8 sg_stream_ctl.8 sg_sync.8 sg_timestamp.8 sg_turs.8 sg_unmap.8 sg_verify.8 sg_vpd.8 sg_wr_mode.8 sg_write_attr.8 sg_write_buffer.8 sg_write_long.8 sg_write_same.8 sg_write_verify.8 sg_write_x.8 sg_zone.8 sg_z_act_query.8 rescan-scsi-bus.sh.8 scsi_logging_level.8 sg_copy_results.8 sg_dd.8 sg_emc_trespass.8 sg_map.8 sg_map26.8 sg_rbuf.8 sg_read.8 sg_reset.8 '/usr/local/share/man/man8'
+ /usr/bin/install -c -m 644 sg_scan.8 sg_test_rwbuf.8 sg_xcopy.8 sginfo.8 sgm_dd.8 sgp_dd.8 '/usr/local/share/man/man8'
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/doc'
+make[1]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/doc'
+Making install in scripts
+make[1]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/scripts'
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/scripts'
+ /usr/bin/mkdir -p '/usr/local/bin'
+ /usr/bin/install -c scsi_logging_level scsi_mandat scsi_readcap scsi_ready scsi_satl scsi_start scsi_stop scsi_temperature rescan-scsi-bus.sh '/usr/local/bin'
+make[2]: Nothing to be done for 'install-data-am'.
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/scripts'
+make[1]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils/scripts'
+make[1]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils'
+make[2]: Entering directory '/home/xb/project/PureFlash/thirdParty/sg3_utils'
+make[2]: Nothing to be done for 'install-exec-am'.
+make[2]: Nothing to be done for 'install-data-am'.
+make[2]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils'
+make[1]: Leaving directory '/home/xb/project/PureFlash/thirdParty/sg3_utils'
+CMake Deprecation Warning at pfs/CMakeLists.txt:1 (cmake_minimum_required):
+  Compatibility with CMake < 2.8.12 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value or use a ...<max> suffix to tell
+  CMake that the project does not need compatibility with older versions.
+
+
+-- Using the single-header code from /home/xb/project/PureFlash/pfs/nlohmann_json/single_include/
+CMake Deprecation Warning at common/CMakeLists.txt:2 (cmake_minimum_required):
+  Compatibility with CMake < 2.8.12 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value or use a ...<max> suffix to tell
+  CMake that the project does not need compatibility with older versions.
+
+
+Fio not defined and will not build. You can specify fio dir by -DFIO_DIR=<fio_source_dir>
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/xb/project/PureFlash/build_deb
+root@9222c459201b:/home/xb/project/PureFlash/build_deb# ninja
+[11/55] Building CXX object common/CMakeFiles/s5common.dir/src/pf_spdk_ring.cpp.o
+FAILED: common/CMakeFiles/s5common.dir/src/pf_spdk_ring.cpp.o 
+g++ -DPF_CLIENT -DTHREADED -DWITH_RDMA -D_OS_64 -D_POSIX_C_SOURCE=200112L -D__WITH_MURMUR -I/home/xb/project/PureFlash/pre_build_libs/ubuntu_22.04_x86_64 -I/home/xb/project/PureFlash/thirdParty/zookeeper/zookeeper-client/zookeeper-client-c/include -I/home/xb/project/PureFlash/thirdParty/zookeeper/zookeeper-client/zookeeper-client-c/generated -I/home/xb/project/PureFlash/common/include -I/home/xb/project/PureFlash/common/../S5bd/include -I/home/xb/project/PureFlash/common/../pfs/nlohmann_json/include -I/home/xb/project/PureFlash/common/../thirdParty/spdk/include -I/home/xb/project/PureFlash/common/../thirdParty/spdk -I/home/xb/project/PureFlash/common/../thirdParty/spdk/dpdk/build/include -Wall -Wno-sign-compare -Wconversion -fPIC  -O0 -g  -fdiagnostics-color=always -MD -MT common/CMakeFiles/s5common.dir/src/pf_spdk_ring.cpp.o -MF common/CMakeFiles/s5common.dir/src/pf_spdk_ring.cpp.o.d -o common/CMakeFiles/s5common.dir/src/pf_spdk_ring.cpp.o -c /home/xb/project/PureFlash/common/src/pf_spdk_ring.cpp
+/home/xb/project/PureFlash/common/src/pf_spdk_ring.cpp:21:10: fatal error: rte_mempool.h: No such file or directory
+   21 | #include "rte_mempool.h"
+      |          ^~~~~~~~~~~~~~~
+compilation terminated.
+[14/55] Building C object pfs/CMakeFiles/pfs.dir/__/thirdParty/mongoose/mongoose.c.o
+/home/xb/project/PureFlash/thirdParty/mongoose/mongoose.c:951:30: warning: argument 1 of type 'unsigned char[16]' with mismatched bound [-Warray-parameter=]
+  951 | void MD5_Final(unsigned char digest[16], MD5_CTX *ctx) {
+      |                ~~~~~~~~~~~~~~^~~~~~~~~~
+In file included from /home/xb/project/PureFlash/thirdParty/mongoose/mongoose.c:1:
+/home/xb/project/PureFlash/thirdParty/mongoose/mongoose.h:1861:31: note: previously declared as 'unsigned char *'
+ 1861 | void MD5_Final(unsigned char *md, MD5_CTX *c);
+      |                ~~~~~~~~~~~~~~~^~
+[31/55] Building CXX object pfs/CMakeFiles/pfs.dir/src/pf_redolog.cpp.o
+/home/xb/project/PureFlash/pfs/src/pf_redolog.cpp: In member function 'int PfRedoLog::init(PfFlashStore*)':
+/home/xb/project/PureFlash/pfs/src/pf_redolog.cpp:16:13: warning: unused variable 'rc' [-Wunused-variable]
+   16 |         int rc = 0;
+      |             ^~
+/home/xb/project/PureFlash/pfs/src/pf_redolog.cpp: In member function 'int PfRedoLog::set_log_phase(int64_t, uint64_t)':
+/home/xb/project/PureFlash/pfs/src/pf_redolog.cpp:33:1: warning: no return statement in function returning non-void [-Wreturn-type]
+   33 | }
+      | ^
+/home/xb/project/PureFlash/pfs/src/pf_redolog.cpp: In member function 'int PfRedoLog::discard()':
+/home/xb/project/PureFlash/pfs/src/pf_redolog.cpp:160:66: warning: conversion from 'int' to 'uint8_t' {aka 'unsigned char'} may change value [-Wconversion]
+  160 |         store->head.current_redolog = store->oppsite_redolog_zone();
+      |                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+[33/55] Building CXX object pfs/CMakeFiles/pfs.dir/src/pf_spdk_engine.cpp.o
+/home/xb/project/PureFlash/pfs/src/pf_spdk_engine.cpp: In static member function 'static int PfspdkEngine::poll_io(int*, void*)':
+/home/xb/project/PureFlash/pfs/src/pf_spdk_engine.cpp:191:67: warning: conversion from 'int64_t' {aka 'long int'} to 'int' may change value [-Wconversion]
+  191 |         num_completions = spdk_nvme_poll_group_process_completions(pthis->group, 0, spdk_engine_disconnect_cb);
+      |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[34/55] Building CXX object pfs/CMakeFiles/pfs.dir/src/pf_scrub.cpp.o
+/home/xb/project/PureFlash/pfs/src/pf_scrub.cpp: In function 'std::string calc_block_md5(int, off_t, size_t)':
+/home/xb/project/PureFlash/pfs/src/pf_scrub.cpp:264:76: warning: conversion from 'size_t' {aka 'long unsigned int'} to 'uint32_t' {aka 'unsigned int'} may change value [-Wconversion]
+  264 |         md5_ctx_mgr_submit(inner.mgr, &inner.ctxpool[0], (char*)read_buf , len, HASH_ENTIRE);
+      |                                                                            ^~~
+[43/55] Building CXX object pfs/CMakeFiles/pfs.dir/src/pf_cluster.cpp.o
+/home/xb/project/PureFlash/pfs/src/pf_cluster.cpp:45:12: warning: 'int zk_update(const char*, const char*, int)' defined but not used [-Wunused-function]
+   45 | static int zk_update(const char* node, const char* value, int val_len) //NOTE: keep this unused function help compile OK
+      |            ^~~~~~~~~
+[44/55] Building CXX object pfs/CMakeFiles/pfs.dir/src/pf_main.cpp.o
+/home/xb/project/PureFlash/pfs/src/pf_main.cpp:82: warning: "WITH_RDMA" redefined
+   82 | #define WITH_RDMA
+      | 
+<command-line>: note: this is the location of the previous definition
+[48/55] Building CXX object common/CMakeFiles/pfdd.dir/src/pf_pfdd.cpp.o
+/home/xb/project/PureFlash/common/src/pf_pfdd.cpp: In function 'int main(int, char**)':
+/home/xb/project/PureFlash/common/src/pf_pfdd.cpp:266:17: warning: unused variable 'offset_in_file' [-Wunused-variable]
+  266 |         int64_t offset_in_file = 0;
+      |                 ^~~~~~~~~~~~~~
+[49/55] Building CXX object pfs/CMakeFiles/pfs.dir/src/pf_flash_store.cpp.o
+/home/xb/project/PureFlash/pfs/src/pf_flash_store.cpp: In function 'void register_ctrlr(spdk_nvme_ctrlr*, ns_entry*)':
+/home/xb/project/PureFlash/pfs/src/pf_flash_store.cpp:2524:64: warning: conversion from 'uint32_t' {aka 'unsigned int'} to 'uint16_t' {aka 'short unsigned int'} may change value [-Wconversion]
+ 2524 |                 for (nsid = spdk_nvme_ctrlr_get_first_active_ns(ctrlr);
+      |                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~
+/home/xb/project/PureFlash/pfs/src/pf_flash_store.cpp:2525:74: warning: conversion from 'uint32_t' {aka 'unsigned int'} to 'uint16_t' {aka 'short unsigned int'} may change value [-Wconversion]
+ 2525 |                      nsid != 0; nsid = spdk_nvme_ctrlr_get_next_active_ns(ctrlr, nsid)) {
+      |                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~
+[51/55] Building CXX object pfs/CMakeFiles/pfs.dir/src/pf_restful_api.cpp.o
+In file included from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue.h:22,
+                 from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/env.h:16,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_mempool.h:8,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_app_ctx.h:6,
+                 from /home/xb/project/PureFlash/pfs/include/pf_main.h:26,
+                 from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:15:
+/home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue_extras.h:155: warning: "STAILQ_LAST" redefined
+  155 | #define STAILQ_LAST(head, type, field)                                  \
+      | 
+In file included from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:6:
+/home/xb/project/PureFlash/pfs/../thirdParty/mongoose/mongoose.h:2388: note: this is the location of the previous definition
+ 2388 | #define STAILQ_LAST(head, type, field)                          \
+      | 
+In file included from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue.h:22,
+                 from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/env.h:16,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_mempool.h:8,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_app_ctx.h:6,
+                 from /home/xb/project/PureFlash/pfs/include/pf_main.h:26,
+                 from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:15:
+/home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue_extras.h:167: warning: "STAILQ_SWAP" redefined
+  167 | #define STAILQ_SWAP(head1, head2, type) do {                            \
+      | 
+In file included from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:6:
+/home/xb/project/PureFlash/pfs/../thirdParty/mongoose/mongoose.h:2421: note: this is the location of the previous definition
+ 2421 | #define STAILQ_SWAP(head1, head2, type) do {                            \
+      | 
+In file included from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue.h:22,
+                 from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/env.h:16,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_mempool.h:8,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_app_ctx.h:6,
+                 from /home/xb/project/PureFlash/pfs/include/pf_main.h:26,
+                 from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:15:
+/home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue_extras.h:247: warning: "LIST_PREV" redefined
+  247 | #define LIST_PREV(elm, head, type, field)                               \
+      | 
+In file included from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:6:
+/home/xb/project/PureFlash/pfs/../thirdParty/mongoose/mongoose.h:2547: note: this is the location of the previous definition
+ 2547 | #define LIST_PREV(elm, head, type, field)                       \
+      | 
+In file included from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue.h:22,
+                 from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/env.h:16,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_mempool.h:8,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_app_ctx.h:6,
+                 from /home/xb/project/PureFlash/pfs/include/pf_main.h:26,
+                 from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:15:
+/home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue_extras.h:251: warning: "LIST_SWAP" redefined
+  251 | #define LIST_SWAP(head1, head2, type, field) do {                       \
+      | 
+In file included from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:6:
+/home/xb/project/PureFlash/pfs/../thirdParty/mongoose/mongoose.h:2565: note: this is the location of the previous definition
+ 2565 | #define LIST_SWAP(head1, head2, type, field) do {                       \
+      | 
+In file included from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue.h:22,
+                 from /home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/env.h:16,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_mempool.h:8,
+                 from /home/xb/project/PureFlash/pfs/../common/include/pf_app_ctx.h:6,
+                 from /home/xb/project/PureFlash/pfs/include/pf_main.h:26,
+                 from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:15:
+/home/xb/project/PureFlash/pfs/../thirdParty/spdk/include/spdk/queue_extras.h:337: warning: "TAILQ_SWAP" redefined
+  337 | #define TAILQ_SWAP(head1, head2, type, field) do {                      \
+      | 
+In file included from /home/xb/project/PureFlash/pfs/src/pf_restful_api.cpp:6:
+/home/xb/project/PureFlash/pfs/../thirdParty/mongoose/mongoose.h:2778: note: this is the location of the previous definition
+ 2778 | #define TAILQ_SWAP(head1, head2, type, field) do {                      \
+      | 
+ninja: build stopped: subcommand failed.
+
+
+
+
+
+
+
+dpdk:
+NUMA问题:
+config/meson.build:388:4: ERROR: Problem encountered: 
+No NUMA library (development package) found, yet DPDK configured for multiple NUMA nodes.
+Please install libnuma, or set 'max_numa_nodes' option to '1' to build without NUMA support.
+
+
+A full log can be found at /home/xb/project/PureFlash/thirdParty/spdk/dpdk/build-tmp/meson-logs/meson-log.txt
+make[1]: *** [Makefile:202: /home/xb/project/PureFlash/thirdParty/spdk/dpdk/build-tmp] Error 1
+make: *** [/home/xb/project/PureFlash/thirdParty/spdk/mk/spdk.subdirs.mk:16: dpdkbuild] Error 2
+
