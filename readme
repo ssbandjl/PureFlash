@@ -1304,9 +1304,9 @@ ht_init(&ht, HT_KEY_CONST | HT_VALUE_CONST, 0.05, HT_INITIAL_SIZE); -> 重新调
 ---------- IO路经,iopath, IO测试, pfdd, dd工具, IO路径, iopath, io路径, 写IO ----------
 common/src/pf_pfdd.cpp -> int main(int argc, char* argv[])
 string rw, bs_str, ifname, ofname, vol_name, cfg_file, snapshot_name;
-void* buf = malloc(bs);
+void* buf = malloc(bs); -> 按块大小分配内存(block_size)
 DeferCall _c([buf](){free (buf);}); -> 析构用作deffer语义
-struct PfClientVolume* vol = pf_open_volume(vol_name.c_str(), cfg_file.c_str(), snapshot_name.c_str(), S5_LIB_VER) -> 开卷
+struct PfClientVolume* vol = pf_open_volume(vol_name.c_str(), cfg_file.c_str(), snapshot_name.c_str(), S5_LIB_VER) -> 开卷(启动客户端卷事件处理线程)
     int PfClientVolume::do_open(bool reopen, bool is_aof)
         event_queue = runtime_ctx->vol_proc->event_queue
         ...
@@ -1317,23 +1317,25 @@ struct PfClientVolume* vol = pf_open_volume(vol_name.c_str(), cfg_file.c_str(), 
                     pThis->process_event(t->type, t->arg_i, t->arg_p, t->arg_q)
                         int PfClientVolume::process_event(int event_type, int arg_i, void* arg_p)
 for(int i=0;i<count;i++)
-    pf_io_submit(vol, buf, bs, offset + i * bs, io_cbk, &arg, is_write) -> 写IO
-        auto io = volume->runtime_ctx->iocb_pool.alloc() -> 泛型, 分配对象内存池
+    pf_io_submit(vol, buf, bs, offset + i * bs, io_cbk, &arg, is_write) -> 提交写IO
+        auto io = volume->runtime_ctx->iocb_pool.alloc() -> 泛型, 在卷上的运行时上下文中的IO回调内存池上, 分配一个对象
         io->ulp_handler = callback -> 设置上层业务回调/控制器
         struct PfMessageHead *cmd = io->cmd_bd->cmd_bd; -> 设置命令
         memcpy(io->data_bd->buf, buf, length) -> 第一次内存拷贝
         cmd->opcode = is_write ? S5_OP_WRITE : S5_OP_READ
+        cmd->snap_seq = volume->snap_seq -> 设置命令的快照序列号为卷上的快照序列号
         int rc = volume->event_queue->post_event( EVT_IO_REQ, 0, io, volume) -> 提交写事件,由其他线程处理事件 -> int PfClientVolume::process_event(int event_type, int arg_i, void* arg_p)
             current_queue->enqueue_nolock(S5Event{ type, arg_i, arg_p , arg_q})
             write(event_fd, &event_delta, sizeof(event_delta)) -> 通知事件线程处理
-    sem_wait(&arg.sem)
-    ssize_t rc = ::write(fd, buf, bs);
+    sem_wait(&arg.sem) -> 同步写(等待写完成,防止IO栈变量被提前释放)
+    ssize_t rc = ::write(fd, buf, bs); -> 将IO也写入文件
+pf_close_volume(vol) -> 关卷
 
-
+客户端卷事件处理线程
 int PfClientVolume::process_event(int event_type, int arg_i, void* arg_p)
     case EVT_IO_REQ
         PfClientIocb* io = (PfClientIocb*)arg_p;
-        if(shards[shard_index].is_local) -> 本地落盘(比如超融合场景)
+        if(shards[shard_index].is_local) -> 本地客户端上落盘(比如超融合场景)
             PfClientStore* local_store = get_local_store(shard_index)
             local_store->do_write(&io->io_subtasks[0]) -> 本地写 -> int PfClientStore::do_write(IoSubTask* io)
                 ioengine->submit_io(io, entry->offset + offset_in_block(cmd->offset, in_obj_offset_mask), cmd->length) -> 提交本地写IO
@@ -1349,11 +1351,11 @@ int PfClientVolume::process_event(int event_type, int arg_i, void* arg_p)
                 wr.opcode = IBV_WR_SEND
                 wr.send_flags = IBV_SEND_SIGNALEDsge.addr = (uint64_t)buf->buf
                 sge.lkey = buf->mrs[this->dev_ctx->idx]->lkey
-                ibv_post_send(rdma_id->qp, &wr, &bad_wr) -> 提交工作请求 -> 触发服务端接收到IO描述: if(bd->wr_op == WrOpcode::RDMA_WR_RECV )
+                ibv_post_send(rdma_id->qp, &wr, &bad_wr) -> 提交工作请求 -> 触发主副本服务端接收到IO描述: if(bd->wr_op == WrOpcode::RDMA_WR_RECV )
 
 
 
-服务端启动事件处理线程:
+主副本服务端启动事件处理线程:
 rc = app_context.rdma_server->init(RDMA_PORT_BASE)
     int PfRdmaServer::init(int port)
         static void *rdma_server_event_proc(void* arg)
@@ -1372,7 +1374,7 @@ rc = app_context.rdma_server->init(RDMA_PORT_BASE)
                 conn->on_work_complete = server_on_rdma_network_done
                 rc = rdma_accept(id, &cm_params)
 
-服务端接收数据:
+主副本服务端接收数据:
 static int server_on_rdma_network_done(BufferDescriptor* bd, WcStatus complete_status, PfConnection* _conn, void* cbk_data)
 if(bd->wr_op == WrOpcode::RDMA_WR_RECV )
     conn->post_read(iocb->data_bd, bd->cmd_bd->buf_addr, bd->cmd_bd->rkey) -> 收到客户端RDMA的SEND请求后, 将客户端数据读到服务端
@@ -1388,7 +1390,7 @@ if(bd->wr_op == WrOpcode::RDMA_WR_RECV )
                 conn->dispatcher->event_queue->post_event(EVT_IO_REQ, 0, iocb);
 
         
-分发器处理事件
+主副本分发器处理事件
 int PfDispatcher::process_event
 case EVT_IO_REQ:
     rc = dispatch_io((PfServerIocb*)arg_p) -> 分发事件 -> int PfDispatcher::dispatch_io(PfServerIocb *iocb)
@@ -1417,7 +1419,7 @@ int PfReplicator::process_event
                 buf->wr_op = RDMA_WR_RECV
                 ibv_post_recv(rdma_id->qp, &wr, &bad_wr)
             io->reply_bd = rbd
-            rc = c->post_send(io->cmd_bd) -> 通过连接提交IO到其他副本(所在的服务器)
+            rc = c->post_send(io->cmd_bd) -> 主副本通过连接提交IO到其他副本(所在的服务器)
                 buf->wr_op = RDMA_WR_SEND
                 wr.opcode = IBV_WR_SEND
                 ibv_post_send(rdma_id->qp, &wr, &bad_wr) -> server_on_rdma_network_done
@@ -1425,7 +1427,7 @@ int PfReplicator::process_event
                         iocb->re_init();
                         conn->post_recv(iocb->cmd_bd);
 
-其他副本节点收到主节点的副本IO:
+其他副本节点收到主副本节点的副本IO:
 int PfFlashStore::process_event
     case EVT_IO_REQ:
         case PfOpCode::S5_OP_REPLICATE_WRITE:
@@ -1438,16 +1440,19 @@ int PfFlashStore::process_event
                     int obj_id = free_obj_queue.dequeue()
                     entry = lmt_entry_pool.alloc()
                     obj_lmt[key] = entry;
-                    int rc = redolog->log_allocation(&key, entry, free_obj_queue.head);
+                    int rc = redolog->log_allocation(&key, entry, free_obj_queue.head); -> 将小块的分配记录到重做日志
+                        if (store->ioengine->sync_write(entry_buff, LBA_LENGTH, current_offset) == -1) -> 同步下刷元数据
+                            uint64_t PfspdkEngine::sync_write(void* buffer, uint64_t buf_size, uint64_t offset) -> 将buf,长度,偏移通过SPDK接口写入裸盘
+                        return store->meta_data_compaction_trigger(COMPACT_TODO, true) -> 触发元数据合并
                 else -> 之前存在块记录
                     ...
                     ioengine->submit_io(io, entry->offset + offset_in_block(cmd->offset, in_obj_offset_mask), cmd->length) -> 将IO提交到引擎,准备落盘
                     int PfspdkEngine::submit_io -> SPDK引擎
-                        if (spdk_nvme_bytes_to_blocks(media_offset, &lba, media_len, &lba_cnt) != 0) -> 写元数据
+                        if (spdk_nvme_bytes_to_blocks(media_offset, &lba, media_len, &lba_cnt) != 0) -> 将偏移和长度转成块
                         if (IS_READ_OP(io->opcode)) -> 读IO
                             spdk_nvme_ns_cmd_read_with_md(ns->ns, qpair[1], data_bd->buf, NULL, lba, (uint32_t)lba_cnt, spdk_io_complete, io, 0, 0, 0)
                         esle -> 写IO
-                            spdk_nvme_ns_cmd_write_with_md(ns->ns, qpair[1], data_bd->buf, NULL, lba, (uint32_t)lba_cnt, spdk_io_complete, io, 0, 0, 0);
+                            spdk_nvme_ns_cmd_write_with_md(ns->ns, qpair[1], data_bd->buf, NULL, lba, (uint32_t)lba_cnt, spdk_io_complete, io, 0, 0, 0); -> 带命名空间的写入(SPDK引擎继承自通用IO引擎,增加NS, 控制器, 块大小, 块数量等)
                             void PfspdkEngine::spdk_io_complete(void* ctx, const struct spdk_nvme_cpl* cpl) -> 写IO完成
                                 io->ops->complete(io, PfMessageStatus::MSG_STATUS_SUCCESS) -> 在初始化内存池(int PfDispatcher::init_mempools)的时候静态注册: static struct TaskCompleteOps _server_task_complete_ops={ server_complete , server_complete_with_metaver };
                     or int PfAioEngine::submit_io -> AIO引擎
@@ -1612,4 +1617,6 @@ apt autoclean && sudo apt autoremove
 ninja会将 cmakelist.txt 生成为ninja的配置文件(build.ninja)
 
 
+
+md_interleave: 元数据交错
 
