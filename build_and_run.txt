@@ -69,7 +69,9 @@ The above command will generate scripts for Debug build. To do a release build, 
 after build finish, all binary should be found under  * bin * dir
 
 5) checkout and build jconductor
-  # git clone https://github.com/cocalele/jconductor.git
+  # git clone https://github.com/cocalele/pfconductor.git
+  ## git clone https://github.com/cocalele/jconductor.git
+  
   # cd jconductor
   # git submodule update --init
   # ant  -f jconductor.xml

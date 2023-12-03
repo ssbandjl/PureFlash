@@ -1,0 +1,59 @@
+[New Thread 0x7ffff6846640 (LWP 1839)]
+[INFO 2023-12-03 23:33:54.623]================================================(/root/project/PureFlash/pfs/src/pf_main.cpp:89:main) 
+[INFO 2023-12-03 23:33:54.623]====       ___               ___            ====(/root/project/PureFlash/pfs/src/pf_main.cpp:90:main) 
+[INFO 2023-12-03 23:33:54.623]====      (o o)             (o o)           ====(/root/project/PureFlash/pfs/src/pf_main.cpp:91:main) 
+[INFO 2023-12-03 23:33:54.623]====     (  V  ) PureFlash (  V  )          ====(/root/project/PureFlash/pfs/src/pf_main.cpp:92:main) 
+[INFO 2023-12-03 23:33:54.623]====     --m-m---------------m-m--          ====(/root/project/PureFlash/pfs/src/pf_main.cpp:93:main) 
+[INFO 2023-12-03 23:33:54.623]PureFlash pfs start..., version:1.0 build:Dec  3 2023 21:13:36(/root/project/PureFlash/pfs/src/pf_main.cpp:94:main) 
+[INFO 2023-12-03 23:33:54.623]replicate connection type: TCP(/root/project/PureFlash/pfs/src/pf_main.cpp:143:main) 
+[INFO 2023-12-03 23:33:54.623]Connecting to zk:127.0.0.1:2181 ...(/root/project/PureFlash/common/src/pf_zk_client.cpp:23:init) 
+[New Thread 0x7ffff2043640 (LWP 1840)]
+[New Thread 0x7ffff1842640 (LWP 1841)]
+[INFO 2023-12-03 23:33:54.643]ZK event:-1 state:3 path:(/root/project/PureFlash/common/src/pf_zk_client.cpp:16:on_zk_event) 
+[INFO 2023-12-03 23:33:54.824]Register store to ZK.(/root/project/PureFlash/pfs/src/pf_main.cpp:174:main) 
+[INFO 2023-12-03 23:33:54.831]Allocate data_pool with max IO size:131072, depth:2048(/root/project/PureFlash/pfs/src/pf_dispatcher.cpp:293:init_mempools) 
+[New Thread 0x7ffff0e7b640 (LWP 1846)]
+[New Thread 0x7fffebfff640 (LWP 1847)]
+[New Thread 0x7fffeb7fe640 (LWP 1848)]
+[New Thread 0x7fffeaffd640 (LWP 1849)]
+[New Thread 0x7fffea7fc640 (LWP 1850)]
+[INFO 2023-12-03 23:33:54.833]Loading disk /dev/loop5 ...(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:322:init) 
+[INFO 2023-12-03 23:33:54.833]Initing AIO engine for disk:/dev/loop5(/root/project/PureFlash/common/src/pf_ioengine.cpp:77:init) 
+[New Thread 0x7fffe9ffb640 (LWP 1851)]
+[INFO 2023-12-03 23:33:54.834]Load disk:/dev/loop5, uuid:cb200b67-1909-4f3f-b894-acd1ace9c3e4(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:1208:read_store_head) 
+[INFO 2023-12-03 23:33:54.834]load metadata from md zone:0, compaction:0(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:953:load_meta_data) 
+[INFO 2023-12-03 23:33:54.843]Load block map, key:0 total obj count:0 free obj count:0(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:1062:load_meta_data) 
+[INFO 2023-12-03 23:33:54.843]Start replay redo log at 4 log zone, start_phase:1, offset:0x190000000(/root/project/PureFlash/pfs/src/pf_redolog.cpp:111:replay) 
+[INFO 2023-12-03 23:33:54.843]/dev/loop5 log zone:4 redolog replay finished. 0 items replayed(/root/project/PureFlash/pfs/src/pf_redolog.cpp:153:replay) 
+[INFO 2023-12-03 23:33:54.843]Start replay redo log at 5 log zone, start_phase:2, offset:0x180000000(/root/project/PureFlash/pfs/src/pf_redolog.cpp:111:replay) 
+[INFO 2023-12-03 23:33:54.843]/dev/loop5 log zone:5 redolog replay finished. 0 items replayed(/root/project/PureFlash/pfs/src/pf_redolog.cpp:153:replay) 
+[INFO 2023-12-03 23:33:54.843]Begin post load check, 0 keys in obj_lmt ...(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:2443:post_load_check) 
+[INFO 2023-12-03 23:33:54.843]Check for duplicated snap_seq and offset ...(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:2445:post_load_check) 
+[INFO 2023-12-03 23:33:54.843]Post check succeed!(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:2467:post_load_check) 
+[INFO 2023-12-03 23:33:54.843]Begin to save metadata at zone:1, 0 keys in lmt(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:851:save_meta_data) 
+[DEBU 2023-12-03 23:33:54.843]Save free_obj_queue to pos:3221225472(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:882:save_meta_data) 
+[INFO 2023-12-03 23:33:54.848]Successed save metadata(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:946:save_meta_data) 
+[INFO 2023-12-03 23:33:54.848]after save metadata, key:0 total obj count:0 free obj count:0, in triming:0, obj size:67108864(/root/project/PureFlash/pfs/src/pf_flash_store.cpp:366:init) 
+[New Thread 0x7fffe97fa640 (LWP 1852)]
+[INFO 2023-12-03 23:33:54.848]compaction:now state is 0(/root/project/PureFlash/pfs/src/pf_redolog.cpp:55:operator()) 
+[New Thread 0x7fffe8ff9640 (LWP 1853)]
+[New Thread 0x7fffd3ffd640 (LWP 1854)]
+[New Thread 0x7fffd37fc640 (LWP 1855)]
+[New Thread 0x7fffd2ffb640 (LWP 1856)]
+[New Thread 0x7fffd27fa640 (LWP 1857)]
+[New Thread 0x7fffd1ff9640 (LWP 1858)]
+[New Thread 0x7fffd17f8640 (LWP 1859)]
+[New Thread 0x7fffd0ff7640 (LWP 1860)]
+[New Thread 0x7fffcbfff640 (LWP 1861)]
+[New Thread 0x7fffcb7fe640 (LWP 1862)]
+[New Thread 0x7fffcaffd640 (LWP 1863)]
+[New Thread 0x7fffca7fc640 (LWP 1864)]
+[New Thread 0x7fffc9ffb640 (LWP 1865)]
+[New Thread 0x7fffc97fa640 (LWP 1866)]
+[New Thread 0x7fffc8ff9640 (LWP 1867)]
+[INFO 2023-12-03 23:33:54.895]Init TCP server with IP:<NULL>:49162(/root/project/PureFlash/pfs/src/pf_server.cpp:82:listen_proc) 
+[New Thread 0x7fffc87f8640 (LWP 1868)]
+[INFO 2023-12-03 23:33:54.895]Init RDMA Server with IP:<NULL>:49160(/root/project/PureFlash/pfs/src/pf_rdma_server.cpp:283:init) 
+[ERRO 2023-12-03 23:33:54.895]rdma_create_id, errno:19(/root/project/PureFlash/pfs/src/pf_rdma_server.cpp:289:init) 
+[ERRO 2023-12-03 23:33:54.895]Failed to init rdma server:-1, RDMA disabled.(/root/project/PureFlash/pfs/src/pf_main.cpp:312:main) 
+[INFO 2023-12-03 23:33:54.901]Start restful server on port:49181(/root/project/PureFlash/pfs/src/pf_restful_server.cpp:139:init_restful_server) 
