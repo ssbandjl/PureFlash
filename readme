@@ -1617,6 +1617,12 @@ apt autoclean && sudo apt autoremove
 ninja会将 cmakelist.txt 生成为ninja的配置文件(build.ninja)
 
 
+truncate  -s 10G /opt/pureflash/data0.img && losetup /dev/loop5 /opt/pureflash/data0.img
+gdb --args pfs -c pfs.conf
+
+
+clean_meta_area
+init_restful_server
 
 md_interleave: 元数据交错
 
