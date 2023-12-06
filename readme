@@ -1188,6 +1188,8 @@ pfs/src/pf_main.cpp -> int main(int argc, char *argv[])
 opt_initialize(argc, (const char**)argv);
 rep_conn_type = RDMA_TYPE
 init_cluster(zk_ip, cluster_name)
+    app_context.zk_client.init
+
 app_context.engine = IO_URING | SPDK | AIO
 spdk_setup_env
     env_opts.pci_allowed = g_allowed_pci_addr; -> 500万IOPS
@@ -1434,7 +1436,7 @@ int PfFlashStore::process_event
             do_write((IoSubTask*)arg_p); -> 将IO写入后端全闪存储 -> int PfFlashStore::do_write(IoSubTask* io)
                 PfMessageHead* cmd = io->parent_iocb->cmd_bd->cmd_bd
                 BufferDescriptor* data_bd = io->parent_iocb->data_bd
-                lmt_key key = {VOLUME_ID(io->rep_id), (int64_t)vol_offset_to_block_slba(cmd->offset, head.objsize_order), 0, 0} -> 每64MB一个key
+                lmt_key key = {VOLUME_ID(io->rep_id), (int64_t)vol_offset_to_block_slba(cmd->offset, head.objsize_order), 0, 0} -> 每64MB一个key, 卷IO+基于起始逻辑块的偏移作为键
                 auto block_pos = obj_lmt.find(key)
                 if (unlikely(block_pos == obj_lmt.end())) -> 没找到块则新分配,并记录重做日志
                     int obj_id = free_obj_queue.dequeue()
@@ -1444,6 +1446,8 @@ int PfFlashStore::process_event
                         if (store->ioengine->sync_write(entry_buff, LBA_LENGTH, current_offset) == -1) -> 同步下刷元数据
                             uint64_t PfspdkEngine::sync_write(void* buffer, uint64_t buf_size, uint64_t offset) -> 将buf,长度,偏移通过SPDK接口写入裸盘
                         return store->meta_data_compaction_trigger(COMPACT_TODO, true) -> 触发元数据合并
+                            last_state = to_run_compact.load()
+
                 else -> 之前存在块记录
                     ...
                     ioengine->submit_io(io, entry->offset + offset_in_block(cmd->offset, in_obj_offset_mask), cmd->length) -> 将IO提交到引擎,准备落盘
@@ -1626,3 +1630,25 @@ init_restful_server
 
 md_interleave: 元数据交错
 
+
+mnmt_ip, 管理IP, 主引擎IP, 对外可提供http服务
+
+
+重做日志:
+int PfRedoLog::start()
+    switch (store->to_run_compact.load()) -> 加载原子变量
+        ...
+        pfs_copy->redolog->replay(head.redolog_phase, CURRENT)
+            save_meta_data
+                stream.init()
+                save_fixed_queue -> 泛型
+                stream.write_calc
+                ser.write_key(&k)
+                ser.write_entry(v)
+                rc = ser.flush_buffer()
+                stream.finalize(md5_result, 0)
+                redolog->discard()
+                    store->head.redolog_phase++;
+                    store->head.current_redolog = store->oppsite_redolog_zone
+                ioengine->sync_write
+                
