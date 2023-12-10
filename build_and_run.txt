@@ -42,8 +42,7 @@ PureFlash can be build with cmake tools.
 1) check out code
   # git clone https://github.com/cocalele/PureFlash.git
   # set PFHOME=$(pwd)/PureFlash
-  # git submodule init
-  # git submodule update
+  # git submodule update --init --recursive
 
 2) build zookeeper
   # cd thirdParty/zookeeper
@@ -90,6 +89,8 @@ after build finish, all binary should be found under  * bin * dir
 	
 ## 2.2 Start zookeeper
     # wget https://downloads.apache.org/zookeeper/zookeeper-3.5.9/apache-zookeeper-3.5.9-bin.tar.gz
+    # wget https://downloads.apache.org/zookeeper/stable/apache-zookeeper-3.8.3-bin.tar.gz
+    tar -zxvf *.tar.gz
     # $ZOOBINDIR/zkServer.sh start
 
 ## 2.3 install mariadb

@@ -1190,19 +1190,54 @@ rep_conn_type = RDMA_TYPE
 init_cluster(zk_ip, cluster_name)
     app_context.zk_client.init
 
+    int PfZkClient::init
+register_store_node(store_id, this_mngt_ip)
 app_context.engine = IO_URING | SPDK | AIO
-spdk_setup_env
-    env_opts.pci_allowed = g_allowed_pci_addr; -> 500万IOPS
-spdk_unaffinitize_thread()
+    spdk_setup_env
+        env_opts.pci_allowed = g_allowed_pci_addr; -> 500万IOPS
+    spdk_unaffinitize_thread()
+for (int i = 0; i < disp_count; i++) -> 初始化分发器,默认4个
+    app_context.disps[i]->init(i)
+        PfEventThread::init(format_string("disp_%d", disp_index).c_str(), IO_POOL_SIZE * 4) -> IO池大小(队列深度): 1024 * 4 = 4K
+            event_queue = new PfEventQueue() -> 新建事件队列
+            rc = ((PfEventQueue *)event_queue)->init(name, qd, 0)
+            thread_proc = thread_proc_eventq; -> 事件处理线程
+            init_mempools(disp_index) -> 初始化内存池(命令池:64B * 2048, 数据池: 128K * 2048, 回复池:32B * 2048), 注册任务完成函数操作
+                cb->subtasks[i]->ops = &_server_task_complete_ops
+    rc = app_context.disps[i]->start() -> 启动分发器线程
+for(int i=0;i<MAX_TRAY_COUNT;i++) -> 初始化硬盘(创建(初始化元数据)/加载元数据), 默认32个, 支持SPDK, 共享盘, 和普通盘
+    PfFlashStore::init
+        PfEventThread::init(tray_name, MAX_AIO_DEPTH * 2) -> 最大异步IO深度: 4K * 2
+        ioengine->init() -> 初始化引擎
+            int rc = io_setup(MAX_AIO_DEPTH, &aio_ctx)
+            aio_poller = std::thread(&PfAioEngine::polling_proc, this) -> 收割IO的异步线程
+        if ((ret = read_store_head()) == 0) -> 如果读取到磁盘头的元数据,则加载元数据
+            load_meta_data(NULL, NULL, NULL, head.current_metadata, false)
+        else if (ret == -EUCLEAN) -> 如果读取到的是新的空盘,则初始化元数据, 初始化新盘
+            New disk found, initializing
+            ...
+            save_meta_data(NULL, NULL, NULL, head.current_metadata)
+                ...
+                MD5Stream_ISA_L stream(fd)
+                ...
+                rc = ser.flush_buffer(); -> 下刷缓冲区
+                redolog->discard() -> 丢弃重做日志
+                    store->head.redolog_phase++ -> 相位加1
+            redolog->set_log_phase(head.redolog_phase, get_meta_position(REDOLOG, CURRENT))
+            redolog->start() -> 启动元数据线程
+            trimming_thread = std::thread(&PfFlashStore::trim_proc, this)
+int rep_count = conf_get_int(app_context.conf, "replicator", "count", 2, FALSE) -> 默认副本执行器个数为2个
+for(int i=0; i< rep_count; i++) -> 初始化副本执行器(与poller和连接绑定)
+    rc = rp->init(i)
 ...
-format_disk -> 格式化磁盘
-    save_meta_data(NULL, NULL, NULL, head.current_metadata) -> 保存元数据
-    MD5Stream_ISA_L::init()
-        md5_ctx_mgr_init(mgr)
-        hash_ctx_init(&ctxpool)
-	md5_ctx_mgr_submit(mgr, &ctxpool, buf, (uint32_t)count, data_len == 0 ? HASH_FIRST : HASH_UPDATE);
-
-
+int PfFlashStore::shared_disk_init
+    format_disk -> 格式化磁盘
+        save_meta_data(NULL, NULL, NULL, head.current_metadata) -> 保存元数据
+        MD5Stream_ISA_L::init()
+            md5_ctx_mgr_init(mgr)
+            hash_ctx_init(&ctxpool)
+        md5_ctx_mgr_submit(mgr, &ctxpool, buf, (uint32_t)count, data_len == 0 ? HASH_FIRST : HASH_UPDATE);
+...
 rdma:
 app_context.rdma_server->init(RDMA_PORT_BASE) -> int PfRdmaServer::init(int port)
     rdma_create_event_channel
@@ -1214,6 +1249,8 @@ app_context.rdma_server->init(RDMA_PORT_BASE) -> int PfRdmaServer::init(int port
 
 
 
+rc = s->init(devname)
+    PfFlashStore::init
 
 
 count = spdk_ring_dequeue(messages, msgs, max_events);
@@ -1234,8 +1271,16 @@ S5LOG_INFO("PureFlash pfs start..., version:1.0 build:%s %s", __DATE__, __TIME__
 延迟执行:
 DeferCall _2([this]() { delete ioengine; ioengine=NULL; });
 
-初始化磁盘头:
+初始化磁盘头, 元数据, 重要函数:
 int PfFlashStore::initialize_store_head()
+    ...
+    uuid_generate(head.uuid)
+    head.objsize=DEFAULT_OBJ_SIZE -> 默认小块分配对象大小为64MB
+    head.free_list_position_first = OFFSET_FREE_LIST_FIRST
+    ...
+    memcpy(buf, &head, sizeof(head)) -> 拷贝元数据头
+    ioengine->sync_write(buf, LBA_LENGTH, 0) -> 将元数据落盘
+
 
 
 struct HeadPage {
@@ -1625,7 +1670,8 @@ truncate  -s 10G /opt/pureflash/data0.img && losetup /dev/loop5 /opt/pureflash/d
 gdb --args pfs -c pfs.conf
 
 
-clean_meta_area
+clean_meta_area(ioengine, app_context.meta_size) -> 按预留的元数据大小(默认40GB), 清除元数据,每次写1MB
+initialize_store_head
 init_restful_server
 
 md_interleave: 元数据交错
@@ -1652,3 +1698,75 @@ int PfRedoLog::start()
                     store->head.current_redolog = store->oppsite_redolog_zone
                 ioengine->sync_write
                 
+debug:
+cd build_deb/
+source env.sh
+gdb --args pfs -c pfs.conf
+
+
+利用泛型初始化队列:
+int init(int _queue_depth)
+{
+	head = tail = 0;
+	this->queue_depth = _queue_depth+1;
+	data = (T*)calloc((size_t)queue_depth, sizeof(T));
+	if (data == NULL)
+		return -ENOMEM;
+	pthread_spin_init(&lock, 0);
+	return 0;
+}
+
+
+消息头, 大小: 64字节, 
+struct PfMessageHead
+{
+	PfOpCode /*uint8_t*/      opcode;
+	uint8_t                   rsv1;
+	uint16_t                  command_id;
+	uint32_t                  snap_seq;
+	uint64_t                  vol_id;
+	uint64_t                  buf_addr;
+	uint32_t                  rkey;
+	uint16_t                  meta_ver;
+	uint16_t                  rsv2;
+	uint64_t                  offset;
+	uint32_t                  length;
+	uint32_t                  command_seq;  //use this field to hold io task sequence number
+	uint64_t                  rsv3;
+	uint64_t                  rsv4;
+};
+
+zk事件回调:
+on_zk_event
+
+
+元数据说明:
+/*
+  SSD head layout in LBA(4096 byte):
+  0: length 1 LBA, head page
+  LBA 1: length 1 LBA, free obj queue meta
+  LBA 2: ~ 8193: length 8192 LBA: free obj queue data,
+     4 byte per object item, 8192 page can contains
+         8192 page x 4096 byte per page / 4 byte per item = 8 Million items
+     while one object is 4M or 16M, 4 Million items means we can support disk size 32T or 128T
+  offset 64MB: length 1 LBA, trim obj queue meta
+  offset 64MB + 1LBA: ~ 64MB + 8192 LBA, length 8192 LBA: trim obj queue data, same size as free obj queue data
+  offset 128MB: length 512MB,  lmt map, at worst case, each lmt_key and lmt_enty mapped one to one. 8 Million items need
+          8M x ( 32 Byte key + 32 Byte entry) = 512M byte = 64K
+  offset 1GByte - 4096, md5 of SSD meta
+  offset 1G: length 1GB, duplicate of first 1G area
+  offset 2G: length 512MB, redo log
+  offset 2G+512M, length 32MB,  ATS lock area
+	 - 1st LBA(4K)  global meta lock
+	 - others, reserve as volume lock
+*/
+int PfFlashStore::save_meta_data(PfFixedSizeQueue<int32_t> *fq, PfFixedSizeQueue<int32_t> *tq,
+
+
+int PfRedoLog::redo_trim(Item* e)
+    delete_matched_entry
+
+
+md, 元数据:
+PfFlashStore::init
+load_meta_data
