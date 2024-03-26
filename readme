@@ -1174,7 +1174,7 @@ TARGET_LINK_LIBRARIES(pfs rdmacm ibverbs pthread zookeeper_mt  hashtable uuid ${
 
 最后，列出PureFlash系统相关的git库：
 PureFlash存储服务pfs:   https://github.com/cocalele/PureFlash.git  
-PureFlash控制服务jconductor: https://github.com/cocalele/jconductor.git
+PureFlash控制服务jconductor: https://github.com/cocalele/jconductor.git, https://github.com/cocalele/pfconductor.git
 增加了pfbd engine的fio:  https://gitee.com/cocalele/fio   
 增加了pfbd支持的qemu: https://gitee.com/cocalele/qemu
 将PureFlash volume导出成iSCSI target的tcmu： https://gitee.com/cocalele/tcmu-runner
@@ -1816,4 +1816,15 @@ md, 元数据:
 PfFlashStore::init
 load_meta_data
 内存元数据 = 磁盘初始元数据 + log记录的增量修改
+
+删除卷:
+do_delete_volume
+    delete_replica
+        disk->delete_replica(replica_id_t(rep_id))
+            delete_obj(&key, p)
+CLT_VOLUME_DELETE
+S5_OP_RPC_DELETE_BLOCK
+
+删除匹配到的entry
+static inline void delete_matched_entry
 
