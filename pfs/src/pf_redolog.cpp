@@ -8,12 +8,14 @@
 #include <string.h>
 
 #include "pf_redolog.h"
+#include "pf_app_ctx.h"
+#include "pf_main.h"
+#include "pf_spdk_engine.h"
 
 #define STORE_META_AUTO_SAVE_INTERVAL (120)
 
 int PfRedoLog::init(struct PfFlashStore* s)
 {
-	int rc = 0;
 	this->store = s;
 	this->disk_fd = s->fd;
 	this->size = s->head.redolog_size;
@@ -30,6 +32,8 @@ int PfRedoLog::set_log_phase(int64_t _phase, uint64_t offset)
 	phase = _phase;
 	start_offset = offset;
 	current_offset = start_offset;
+
+	return 0;
 }
 
 int PfRedoLog::start()
@@ -41,6 +45,8 @@ int PfRedoLog::start()
 		char name[256] = {0};
 		sprintf(name, "md_%s", store->tray_name);
 		prctl(PR_SET_NAME, name);
+		if (app_context.engine == SPDK)
+			((PfspdkEngine*)store->ioengine)->pf_spdk_io_channel_open(1);
 		while (1)
 		{
 			if (0 != gettimeofday(&now, NULL)) {
@@ -71,6 +77,7 @@ int PfRedoLog::start()
 					break;
 					case COMPACT_IDLE:
 					case COMPACT_STOP:
+					case COMPACT_ERROR:
 					{
 						rc = pthread_cond_timedwait(&store->md_cond, &store->md_lock, &timeout);
 						if (store->to_run_compact.load() == COMPACT_STOP) {
@@ -89,17 +96,14 @@ int PfRedoLog::start()
 						}
 					}
 					break;
-					case COMPACT_ERROR:
-						S5LOG_FATAL("unexpect compact state for compaction error!");
-						break;
-				
 				}
 				if (done == 1)
 					break;
 			}
 			pthread_mutex_unlock(&store->md_lock);
 		}
-
+		if (app_context.engine == SPDK)
+			((PfspdkEngine *)store->ioengine)->pf_spdk_io_channel_close(NULL);
 	});
 	return 0;
 }
@@ -108,7 +112,9 @@ int PfRedoLog::replay(int64_t start_phase, int which)
 	int cnt = 0;
 	int rc = 0;
 	int64_t offset = store->get_meta_position(REDOLOG, which);
-	S5LOG_INFO("Start replay redo log at %d log zone, start_phase:%d, offset:0x%lx", which, start_phase, offset);
+	S5LOG_INFO("Start replay redo log at %s log zone, start_phase:%d, offset:0x%lx",
+		store->meta_positon_2str(REDOLOG, which == CURRENT ? store->head.current_redolog : store->oppsite_redolog_zone()), 
+		start_phase, offset);
 	while(1)
 	{
 		if (store->ioengine->sync_read(entry_buff, LBA_LENGTH, offset) == -1) {
@@ -150,14 +156,14 @@ int PfRedoLog::replay(int64_t start_phase, int which)
 		offset += LBA_LENGTH;
 
 	}
-	S5LOG_INFO("%s log zone:%d redolog replay finished. %d items replayed", store->tray_name, which, cnt);
+	S5LOG_INFO("%s log zone:%s redolog replay finished. %d items replayed", store->tray_name, store->meta_positon_2str(REDOLOG, which), cnt);
 	return 0;
 }
 
 int PfRedoLog::discard()
 {
 	store->head.redolog_phase++;
-	store->head.current_redolog = store->oppsite_redolog_zone();
+	store->head.current_redolog = (uint8_t)store->oppsite_redolog_zone();
 
 	return 0;
 }

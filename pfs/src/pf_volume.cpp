@@ -32,6 +32,7 @@ const char* HealthStatus2Str(HealthStatus code)
 			return buf;
 	}
 }
+
 PfVolume& PfVolume::operator=(PfVolume&& vol)
 {
 	this->meta_ver = vol.meta_ver;
@@ -42,6 +43,9 @@ PfVolume& PfVolume::operator=(PfVolume&& vol)
 	for (int i = 0; i < shard_count; i++) {
 		PfShard* s = shards[i];
 		for (int j = 0; j < s->rep_count; j++) {
+			if (s->replicas[j] == NULL) {
+				continue;
+			}
 			if (s->replicas[j]->status == HealthStatus::HS_RECOVERYING && vol.shards[i]->replicas[j]->status == HealthStatus::HS_ERROR) {
 				vol.shards[i]->replicas[j]->status = HealthStatus::HS_RECOVERYING; //keep recoverying continue
 			}
@@ -74,6 +78,9 @@ PfShard::~PfShard()
 	S5LOG_DEBUG("Desctruct PfShard, idx:%d", this->shard_index);
 	for(int i=0;i< MAX_REP_COUNT; i++)
 	{
+		if (replicas[i] == NULL) {
+			continue;
+		}
 		delete replicas[i];
 		replicas[i] = NULL;
 	}

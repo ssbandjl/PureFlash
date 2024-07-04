@@ -16,6 +16,12 @@ enum {
 	SPDK,
 };
 
+enum RDMA_CQ_PROC_MODEL {
+	EVENT,
+	POLLING,
+	NONE_MODEL,
+};
+
 class BufferDescriptor;
 class PfIoDesc
 {
@@ -28,7 +34,6 @@ class PfAppCtx
 {
 public:
 	int io_desc_count;
-	ObjectMemoryPool<PfIoDesc> iod_pool;
 	BigMemPool cow_buf_pool;
 
 	//BufferPool cmd_pool;
@@ -44,11 +49,13 @@ public:
 	std::string conf_file_name;
 	conf_file_t conf;
 	int engine;
+	RDMA_CQ_PROC_MODEL cq_proc_model;
+	bool shard_to_replicator = false;
 	struct PfRdmaDevContext *dev_ctx[MAX_RDMA_DEVICE];
 	virtual int PfRdmaRegisterMr(struct PfRdmaDevContext *dev_ctx) = 0 ;
 	virtual void PfRdmaUnRegisterMr() = 0;
 	bool rdma_client_only;
-	PfAppCtx():cow_buf_pool(COW_OBJ_SIZE), engine(AIO)
+	PfAppCtx():cow_buf_pool(COW_OBJ_SIZE), engine(AIO), cq_proc_model(NONE_MODEL), shard_to_replicator(false)
 	{
 		for (int i = 0 ; i < MAX_RDMA_DEVICE; i++)
 			dev_ctx[i] = NULL;

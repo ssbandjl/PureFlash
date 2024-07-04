@@ -102,8 +102,10 @@ public:
 #define COMPACT_RUNNING 3
 #define COMPACT_ERROR 4
 	std::atomic<int> to_run_compact;
+	PfFlashStore *compact_tool;
+	int compact_lmt_exist;
 	int is_shared_disk;
-
+	PfFlashStore(int32_t n_threads = 4) : cow_thread_pool(n_threads) {}
 	~PfFlashStore();
 	/**
 	 * init flash store from device. this function will create meta data
@@ -112,14 +114,13 @@ public:
 	 * @return 0 on success, negative for error
 	 * @retval -ENOENT  device not exist or failed to open
 	 */
-	int init(const char* dev_name);
-	int shared_disk_init(const char* tray_name);
+	int init(const char* dev_name, uint16_t* p_id);
+	int shared_disk_init(const char* tray_name, uint16_t* p_id);
 	int owner_init();
-	int spdk_nvme_init(const char* trid_str);
+	int spdk_nvme_init(const char* trid_str, uint16_t* p_id);
 	int register_controller(const char *trid_str);
 
 	int process_event(int event_type, int arg_i, void* arg_p, void* arg_q);
-
 
 
 	void trim_proc();
@@ -143,11 +144,12 @@ public:
 	 */
 	int do_write(IoSubTask* io);
 
-	int save_meta_data(PfFixedSizeQueue<int32_t> *fq, PfFixedSizeQueue<int32_t> *tq,
-				std::unordered_map<struct lmt_key, struct lmt_entry*, struct lmt_hash> *lmt, int md_zone);
+	int save_meta_data(int md_zone);
+	int compact_tool_init();
 	int compact_meta_data();
 	int meta_data_compaction_trigger(int state, bool force_wait);
 	uint64_t get_meta_position(int meta_type, int which);
+	const char* meta_positon_2str(int meta_type, int which);
 	int oppsite_md_zone();
 	int oppsite_redolog_zone();
 	void delete_snapshot(shard_id_t shard_id, uint32_t snap_seq_to_del, uint32_t prev_snap_seq, uint32_t next_snap_seq);
@@ -158,15 +160,15 @@ public:
 	int get_snap_list(volume_id_t volume_id, int64_t offset, std::vector<int>& snap_list);
 	int delete_obj(struct lmt_key* , struct lmt_entry* entry);
 	int delete_obj_by_snap_seq(struct lmt_key* key, uint32_t snap_seq);
-	virtual int commit_batch() { return ioengine->submit_batch(); };
+	virtual int commit_batch() override { return ioengine->submit_batch(); };
 private:
 	ThreadPool cow_thread_pool; //TODO: use std::async replace
 	int format_disk();
 	int read_store_head();
 	int write_store_head();
 	int initialize_store_head();
-	int load_meta_data(PfFixedSizeQueue<int32_t> *fq, PfFixedSizeQueue<int32_t> *tq,
-		std::unordered_map<struct lmt_key, struct lmt_entry*, struct lmt_hash> *lmt, int md_zone, bool compaction);
+	int load_meta_data(int md_zone, bool compaction);
+	int start_metadata_service(bool init);
 
 	/** these two function convert physical object id (i.e. object in disk space) and offset in disk
 	 *  Note: don't confuse these function with vol_offset_to_block_idx, which do convert

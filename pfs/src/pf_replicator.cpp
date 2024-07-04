@@ -11,9 +11,12 @@
 #include "pf_client_priv.h"
 #include "pf_message.h"
 #include "pf_main.h"
+#include "spdk/env.h"
 #ifdef WITH_RDMA
 #include "pf_rdma_connection.h"
 #endif
+
+#define USE_DELAY_THREAD
 
 extern enum connection_type rep_conn_type;
 
@@ -37,27 +40,41 @@ int PfReplicator::begin_replicate_io(IoSubTask* t)
 {
 	int rc;
 	PfConnection* c = (PfConnection*)conn_pool->get_conn((int)t->store_id);
-	if (c == NULL) {
+	if (unlikely(c == NULL)) {
 		S5LOG_ERROR("Failed get connection to store:%d", t->store_id);
+		PfMessageHead* cmd = t->parent_iocb->cmd_bd->cmd_bd;
+		PfVolume* vol = app_context.get_opened_volume(cmd->vol_id);
+		uint32_t shard_index = (uint32_t)OFFSET_TO_SHARD_INDEX(cmd->offset);
+		PfShard* s = vol->shards[shard_index];
+		PfReplica * r = s->replicas[t->rep_index];
+		if( r->status == HS_RECOVERYING){
+			r->status = HS_ERROR;
+			S5LOG_ERROR("Stop recovery on replica:0x%lx rep_index:%d for connection error", r->id, t->rep_index);//we may have dup replica id, but always unique index
+			//TODO: stop ongoing recovery job on this replica
+		}
 		app_context.error_handler->submit_error(t, PfMessageStatus::MSG_STATUS_CONN_LOST);
 		return PfMessageStatus::MSG_STATUS_CONN_LOST;
 	}
 	if(!c->get_throttle()){
-		S5LOG_ERROR("too many request to get throttle, retry later");
+		S5LOG_ERROR("too many request to get throttle on conn:%p, retry later", c);
+#ifdef USE_DELAY_THREAD
+		delay_thread.event_queue->post_event(EVT_IO_REQ, 0, t, (void*)(now_time_usec() + 100));
+#else
 		usleep(100);
 		event_queue->post_event(EVT_IO_REQ, 0, t);
-		//delay_thread.event_queue->post_event(EVT_IO_REQ, 0, t, (void* )(now_time_usec()+100));
-		
+#endif		
 		return -EAGAIN;
 
 	}
 	PfClientIocb* io = iocb_pool.alloc();
 	if (unlikely(io == NULL)) {
 		S5LOG_ERROR("too many request to alloc IOCB for replicating, retry later");
+#ifdef USE_DELAY_THREAD
+		delay_thread.event_queue->post_event(EVT_IO_REQ, 0, t, (void*)(now_time_usec() + 100));
+#else
 		usleep(100);
 		event_queue->post_event(EVT_IO_REQ, 0, t);
-
-		//delay_thread.event_queue->post_event(EVT_IO_REQ, 0, t, (void*)(now_time_usec() + 100));
+#endif
 		return -EAGAIN;
 	}
 	io->submit_time = now_time_usec();
@@ -111,6 +128,7 @@ int PfReplicator::begin_replicate_io(IoSubTask* t)
 		iocb_pool.free(io);
 		return -EAGAIN;
 	}
+	t->submit_time = spdk_get_ticks();
 	return rc;
 }
 
@@ -126,7 +144,7 @@ int PfReplicator::process_io_complete(PfClientIocb* iocb, int _complete_status)
 	uint64_t io_elapse_time = (iocb->reply_time - iocb->submit_time) / ms1;
 	if (unlikely(io_elapse_time > 2000))
 	{
-		S5LOG_WARN("SLOW IO, shard id:%d, command_id:%d, op:%s, since submit:%dms since send:%dms",
+		S5LOG_WARN("SLOW IO, shard id:%d, command_id:%d, op:%s, since submit:%ulms since send:%ulms",
 				   io_cmd->offset >> SHARD_SIZE_ORDER,
 				   io_cmd->command_id,
 				   PfOpCode2Str(io_cmd->opcode),
@@ -264,17 +282,19 @@ void PfReplicator::PfRepConnectionPool::connect_peer(int store_id)
 PfConnection* PfReplicator::PfRepConnectionPool::get_conn(int store_id)
 {
 	auto pos = peers.find(store_id);
-	if(unlikely(pos == peers.end())) {
+	if (unlikely(pos == peers.end())) {
 		S5LOG_ERROR("Peer IP for store_id:%d not found", store_id);
 		return NULL;
 	}
 	PeerAddr& addr = pos->second;
-	if(addr.conn != NULL && addr.conn->state == CONN_OK)
+	if (addr.conn != NULL && addr.conn->state == CONN_OK)
 		return addr.conn;
-	for(int i=0;i<addr.ip.size();i++){
-		addr.conn = PfConnectionPool::get_conn(addr.ip[addr.curr_ip_idx], conn_type);
-		if(addr.conn)
-			return addr.conn;
+	for (int i = 0; i < addr.ip.size(); i++) {
+		if(addr.ip[addr.curr_ip_idx].size() > 0){ //an empty string may added as placeholder in prepare volume
+			addr.conn = PfConnectionPool::get_conn(addr.ip[addr.curr_ip_idx], conn_type);
+			if(addr.conn)
+				return addr.conn;
+		}
 		addr.curr_ip_idx = (addr.curr_ip_idx+1)%(int)addr.ip.size();
 	}
 	return NULL;
@@ -342,7 +362,7 @@ static int replicator_on_tcp_network_done(BufferDescriptor* bd, WcStatus complet
 		 *    so, in `replicator_on_conn_close` , it will retry IO
 		 */
 		S5LOG_ERROR("replicating connection closed, %s", bd->conn->connection_info.c_str());
-		if(bd->data_len == sizeof(PfMessageReply)) { //error during receive reply
+		if (bd->data_len == sizeof(PfMessageReply)) { //error during receive reply
 			S5LOG_WARN("Connection:%p error during receive reply, will resend IO", conn);
 			conn->replicator->mem_pool.reply_pool.free(bd);
 		} else if(bd->data_len == sizeof(PfMessageHead)) { //error during send head
@@ -402,6 +422,9 @@ static int replicator_on_rdma_network_done(BufferDescriptor* bd, WcStatus comple
 				conn->replicator->mem_pool.reply_pool.free(bd);
 				return 0;
 			}
+                        // in order to trace reply latency
+                        SubTask *t = (SubTask *) iocb->ulp_arg;
+                        t->reply_time = spdk_get_ticks();
 			return conn->replicator->event_queue->post_event(EVT_IO_COMPLETE, 0, iocb);
 		}
 		return 0;
@@ -493,13 +516,15 @@ int PfReplicator::handle_conn_close(PfConnection *c)
 	return 0;
 }
 
-int PfReplicator::init(int index)
+int PfReplicator::init(int index, uint16_t* p_id)
 {
 	int rc;
 	rep_index = index;
 	snprintf(name, sizeof(name), "%d_replicator", rep_index);
-	int rep_iodepth = 256;
-	PfEventThread::init(name, 8192);
+	int rep_iodepth = PF_MAX_IO_DEPTH; //io depth in single connection
+	int rep_iocb_depth = 8192; //total IO's in processing
+	PfEventThread::init(name, rep_iocb_depth, *p_id);
+	*p_id=(*p_id)+1;
 	Cleaner clean;
 	tcp_poller = new PfPoller();
 	if(tcp_poller == NULL) {
@@ -531,7 +556,7 @@ int PfReplicator::init(int index)
 #endif
 	}
 
-	int iocb_pool_size = 8192;
+	int iocb_pool_size = rep_iocb_depth;
 	rc = mem_pool.cmd_pool.init(sizeof(PfMessageHead), iocb_pool_size);
 	if(rc != 0){
 		S5LOG_ERROR("Failed to init cmd_pool, rc:%d", rc);
@@ -566,10 +591,13 @@ int PfReplicator::init(int index)
 		mem_pool.reply_pool.free(rbd);
 		iocb_pool.free(io);
 	}
-
-	//delay_thread.replicator = this;
-	//delay_thread.init("delay", rep_iodepth*2);
-	//delay_thread.start();
+#ifdef USE_DELAY_THREAD
+	delay_thread.replicator = this;
+	char delay_name[32];
+        snprintf(delay_name, sizeof(delay_name), "%d_delay", rep_index);
+	delay_thread.init(delay_name, rep_iocb_depth, *p_id);
+	delay_thread.start();
+#endif
 	clean.cancel_all();
 	return 0;
 }

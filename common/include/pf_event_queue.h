@@ -46,6 +46,9 @@ enum S5EventType : int
 	EVT_CONN_CLOSED,
 	EVT_SAVEMD,
 	EVT_WAIT_OWNER_LOCK,
+	EVT_GET_STAT,
+	EVT_FORCE_RELEASE_CONN,
+	EVT_ASK_CONDUCTOR,
 };
 const char* EventTypeToStr(S5EventType t);
 
@@ -91,6 +94,9 @@ struct SyncInvokeArg
 struct pf_spdk_msg {
     struct S5Event event;
 	bool lock_cache_msg;
+	uint64_t start_time;
+	uint64_t inq_time;
+	uint64_t sched_time;
 	SLIST_ENTRY(pf_spdk_msg)	link;
 };
 
@@ -101,7 +107,6 @@ public:
     SLIST_HEAD(, pf_spdk_msg)  msg_cache;
 	SLIST_HEAD(, pf_spdk_msg)  msg_cache_locked;
 	struct spdk_mempool * msg_mempool;
-    int cahce_cnt;
 	int event_fd;
 	pthread_spinlock_t lock;
 

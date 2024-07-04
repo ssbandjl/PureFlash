@@ -33,6 +33,8 @@ static void handle_api(struct mg_connection *nc, int ev, void *p) {
 		try {
 			if (strcmp(opcode, "prepare_volume") == 0)
 				handle_prepare_volume(nc, hm);
+			else if (strcmp(opcode, "delete_volume") == 0)
+				handle_delete_volume(nc, hm);
 			else if (strcmp(opcode, "set_meta_ver") == 0)
 				handle_set_meta_ver(nc, hm);
 			else if (strcmp(opcode, "set_snap_seq") == 0)
@@ -57,6 +59,8 @@ static void handle_api(struct mg_connection *nc, int ev, void *p) {
 				handle_cal_object_md5(nc, hm);
 			else if (strcmp(opcode, "prepare_shards") == 0)
 				handle_prepare_shards(nc, hm);
+			else if (strcmp(opcode, "get_thread_stats") == 0)
+				handle_get_thread_stats(nc, hm);
 			else {
 				S5LOG_ERROR("Unknown op:%s", opcode);
 				string cstr = format_string("Unknown op:%s", opcode);
@@ -91,11 +95,16 @@ static void handle_debug(struct mg_connection *nc, int ev, void *p) {
 			handle_perf_stat(nc, hm);
 		else if (strcmp(opcode, "disp_io") == 0)
 			handle_disp_io_stat(nc, hm);
+		else if (strcmp(opcode, "disp_io_reset") == 0)
+			handle_disp_io_stat_reset(nc, hm);
 		else if (strcmp(opcode, "save_md") == 0) {
 			handle_save_md_disk(nc, hm);
 		}
 		else if (strcmp(opcode, "stat_conn") == 0) {
 			handle_stat_conn(nc, hm);//statistics connection
+		}
+		else if(strcmp(opcode, "stat_iocb_pool") == 0) {
+			handle_stat_iocb_pool(nc,hm); //free iocb count in dispatcher iocb_pool
 		}
 		else
 		{
@@ -137,6 +146,7 @@ int init_restful_server()
 	// Set up HTTP server parameters
 	mg_set_protocol_http_websocket(c);
 	S5LOG_INFO("Start restful server on port:%s", port);
+	S5LOG_INFO("PureFlash started OK");
 	while (1)
 		mg_mgr_poll(&mgr, 1000);
 

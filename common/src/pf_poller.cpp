@@ -7,6 +7,7 @@
 
 #include "pf_poller.h"
 #include "pf_log.h"
+
 PfPoller::PfPoller() :epfd(0),tid(0),max_fd(0)
 {
 
@@ -188,7 +189,6 @@ void PfPoller::run()
 	pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp);
 	while (1)
 	{
-
 		int nfds = epoll_wait(epfd, rev, max_fd, -1);
 		if (nfds == -1)
 		{
@@ -202,7 +202,7 @@ void PfPoller::run()
 		for (int i = 0; i < nfds; i++)
 		{
 			PollerFd* desc = (PollerFd*)rev[i].data.ptr;
-			if(desc->fd == 0){
+			if (desc->fd == 0) {
 				//some event may already in poller ready list, though fd has been removed from interest list
 				S5LOG_WARN("Get event on removed fd"/*, rev[i].data.fd*/);
 				continue;

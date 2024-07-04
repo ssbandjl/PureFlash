@@ -16,6 +16,8 @@
 #include "pf_replica.h"
 #include "pf_scrub.h"
 #include "pf_stat.h"
+#include "pf_event_queue.h"
+#include "pf_server.h"
 
 using nlohmann::json;
 using namespace std;
@@ -63,6 +65,29 @@ void from_json(const json& j, PrepareVolumeArg& p) {
 	j.at("shards").get_to(p.shards);
 }
 
+void from_json(const json& j, DeleteVolumeArg& p) {
+	j.at("op").get_to(p.op);
+	j.at("volume_name").get_to(p.volume_name);
+	j.at("volume_id").get_to(p.volume_id);
+}
+
+void from_json(const json& j, GetThreadStatsArg& p) {
+	j.at("op").get_to(p.op);
+}
+
+void from_json(const nlohmann::json& j, GetThreadStatsReply& p) {
+	from_json(j, *((RestfulReply*)&p));
+	for (int i = 0; i < p.thread_stats.size(); i++) {
+		j.at("name").get_to(p.thread_stats[i].name);
+		j.at("tid").get_to(p.thread_stats[i].tid);
+		j.at("busy").get_to(p.thread_stats[i].stats.busy_tsc);
+		j.at("idle").get_to(p.thread_stats[i].stats.idle_tsc);
+	}
+}
+
+void to_json(json& j, thread_stat& r) {
+	j = json{{ "name", r.name },{ "tid", r.tid },{ "busy", r.stats.busy_tsc }, {"idle", r.stats.idle_tsc}};
+}
 
 void from_json(const json& j, GetSnapListReply& p) {
 	from_json(j, *((RestfulReply*)&p));
@@ -160,6 +185,17 @@ static PfVolume* convert_argument_to_volume(const PrepareVolumeArg& arg)
 		S5LOG_INFO("Convert to shard:%d with %d replicas", i, arg.shards[i].replicas.size());
 		for (int j = 0; j < arg.shards[i].replicas.size(); j++)
 		{
+			if (app_context.shard_to_replicator) {
+				// case1: primary shard is asigned to this store, alloc PfLocalReplica and PfSyncRemoteReplica
+				// case2: primary shard is not asigned to this store but slave shard is asigned to this store, 
+				// 		  only alloc PfLocalReplica
+				// case3: no shard is asigned to this store, do noting
+				if (app_context.store_id != arg.shards[i].replicas[shard->primary_replica_index].store_id && 
+					app_context.store_id != arg.shards[i].replicas[j].store_id) {
+					continue;
+				}				
+			}
+			
 			const ReplicaArg& rarg = arg.shards[i].replicas[j];
 			bool is_local = (rarg.store_id == app_context.store_id);
 			PfReplica * r;
@@ -186,20 +222,25 @@ static PfVolume* convert_argument_to_volume(const PrepareVolumeArg& arg)
 				shard->duty_rep_index = j;
 				if (r->is_primary)
 					shard->is_primary_node = TRUE;
-			}
-			else {
+			} else {
 				r->ssd_index = -1;
-				PfReplicator *rp = app_context.replicators[(vol->id>>24)%app_context.replicators.size()];
+				PfReplicator *rp = NULL;
+				if (app_context.shard_to_replicator) {
+					rp = app_context.get_replicator();
+				} else {
+					rp = app_context.replicators[(vol->id>>24)%app_context.replicators.size()];
+				}
 				((PfSyncRemoteReplica*)r)->replicator = rp;
 
 				std::vector<std::string> ips = split_string(rarg.rep_ports, ',');
 				while(ips.size() < 2)
 					ips.push_back("");
-				rp->sync_invoke([rp, &rarg, &ips](){
+				rp->sync_invoke([rp, r, &rarg, &ips](){
 					auto pos = rp->conn_pool->peers.find(rarg.store_id);
 					if(pos == rp->conn_pool->peers.end() || pos->second.conn == NULL) {
 						rp->conn_pool->add_peer(rarg.store_id, ips[0], ips[1]);
-						rp->conn_pool->connect_peer(rarg.store_id);
+						if(r->status == HS_OK || r->status == HS_RECOVERYING)
+							rp->conn_pool->connect_peer(rarg.store_id);
 					}
 					return 0;
 				});
@@ -296,6 +337,103 @@ void handle_prepare_volume(struct mg_connection *nc, struct http_message * hm)
 	RestfulReply r(arg.op + "_reply");
 	send_reply_to_client(r, nc);
 }
+
+void handle_delete_volume(struct mg_connection *nc, struct http_message * hm)
+{
+	S5LOG_INFO("Receive delete volume req===========\n%.*s\n============", (int)hm->body.len, hm->body.p);
+	auto j = json::parse(hm->body.p, hm->body.p + hm->body.len);
+	DeleteVolumeArg arg = j.get<DeleteVolumeArg>();
+	int rc = 0;
+	uint64_t vol_id = arg.volume_id;
+	for(auto d : app_context.disps)
+	{
+		rc = d->sync_invoke([d, vol_id]()->int {return d->delete_volume(vol_id);});
+		assert(rc == 0);
+	}
+	S5LOG_INFO("Succeeded delete volume:%s", arg.volume_name.c_str());
+
+	RestfulReply r(arg.op + "_reply");
+	send_reply_to_client(r, nc);
+}
+
+static void _thread_get_stats(void *arg)
+{
+	struct restful_get_stats_ctx *ctx = (struct restful_get_stats_ctx*)arg;
+	struct PfEventThread *thread = get_current_thread();
+	struct pf_thread_stats stats;
+
+	if (0 == get_thread_stats(&stats)) {
+		ctx->ctx.thread_stats.push_back( {thread->name, thread->tid, stats} );
+	} else {
+		sem_post(&ctx->sem);
+		return;		
+	}
+	ctx->ctx.next_thread_id++;
+
+	// collect done
+	if (ctx->ctx.next_thread_id == ctx->ctx.num_threads) {
+		for (int i = 0; i < ctx->ctx.thread_stats.size(); i++) {
+			S5LOG_INFO("thread stats: name: %s, tid: %llu, busy: %llu, idle: %llu",
+				ctx->ctx.thread_stats[i].name.c_str(), ctx->ctx.thread_stats[i].tid,
+				ctx->ctx.thread_stats[i].stats.busy_tsc,
+				ctx->ctx.thread_stats[i].stats.idle_tsc);
+		}
+		sem_post(&ctx->sem);
+	} else {
+		// continue to get next thread stat
+		((PfSpdkQueue *)ctx->ctx.threads[ctx->ctx.next_thread_id])->post_event_locked(EVT_GET_STAT, 0, ctx);
+	}
+}
+
+void handle_get_thread_stats(struct mg_connection *nc, struct http_message * hm)
+{
+	S5LOG_INFO("Receive get thread stats req===========\n%.*s\n============", (int)hm->body.len, hm->body.p);
+	auto j = json::parse(hm->body.p, hm->body.p + hm->body.len);
+	GetThreadStatsReply reply;
+	GetThreadStatsArg arg = j.get<GetThreadStatsArg>();
+	auto ctx = new restful_get_stats_ctx();
+	ctx->ctx.next_thread_id = 0;
+	ctx->ctx.fn = _thread_get_stats;
+	ctx->nc = nc;
+	sem_init(&ctx->sem, 0, 0);
+	for (int i = 0; i < app_context.disps.size(); i++) {
+		ctx->ctx.threads.push_back(app_context.disps[i]->event_queue);
+		ctx->ctx.num_threads++;
+	}
+
+	for (int i = 0; i < app_context.replicators.size(); i++) {
+		ctx->ctx.threads.push_back(app_context.replicators[i]->event_queue);
+		ctx->ctx.num_threads++;
+	}
+
+	for (int i = 0; i < app_context.trays.size(); i++) {
+		ctx->ctx.threads.push_back(app_context.trays[i]->event_queue);
+		ctx->ctx.num_threads++;
+	}
+
+	if (ctx->ctx.num_threads > 0) {
+		((PfSpdkQueue *)ctx->ctx.threads[ctx->ctx.next_thread_id])->post_event_locked(EVT_GET_STAT, 0, ctx);
+	}
+	sem_wait(&ctx->sem);
+	sem_destroy(&ctx->sem);
+	reply.thread_stats = ctx->ctx.thread_stats;
+	S5LOG_INFO("Succeeded get thread stats");
+	reply.op = "get_thread_stats_reply";
+	reply.ret_code = 0;
+	//send_reply_to_client(reply, nc);
+	auto jarray = nlohmann::json::array();
+	for (int i = 0; i < reply.thread_stats.size(); i++) {
+		nlohmann::json j;
+		to_json(j, reply.thread_stats[i]);
+		jarray.emplace_back(j);
+	}
+	string jstr = jarray.dump();
+	const char* cstr = jstr.c_str();
+	mg_send_head(nc, reply.ret_code == 0 ? 200 : 400, strlen(cstr), "Content-Type: text/plain");
+	mg_printf(nc, "%s", cstr);
+	delete ctx;
+}
+
 void handle_set_snap_seq(struct mg_connection *nc, struct http_message * hm) {
 	int64_t vol_id = get_http_param_as_int64(&hm->query_string, "volume_id", 0, true);
 	int snap_seq = (int)get_http_param_as_int64(&hm->query_string, "snap_seq", 0, true);
@@ -502,9 +640,42 @@ void handle_save_md_disk(struct mg_connection *nc, struct http_message * hm) {
 }
 
 void handle_stat_conn(struct mg_connection* nc, struct http_message* hm) {
-	std::string rst = format_string("established:%d closed:%d released:%d", PfConnection::total_count, PfConnection::closed_count, PfConnection::released_count);
+	std::string rst = format_string("established:%d closed:%d released:%d\n", PfConnection::total_count, PfConnection::closed_count, PfConnection::released_count);
+	
+	char verbose[16];
+	int found = mg_get_http_var(&hm->query_string, "verbose", verbose, sizeof(verbose));
+	if(found){
+		std::lock_guard<std::mutex> _l(app_context.conn_map_lock);
+		for(auto it = app_context.client_ip_conn_map.begin(); it != app_context.client_ip_conn_map.end(); ++it) {
+			std::string line = format_string("%p %s, state:%d, ref_count:%d, volume:%s\n", it->second, it->second->connection_info.c_str(), 
+				it->second->state, it->second->ref_count, it->second->srv_vol ? it->second->srv_vol->name : "<NA>");
+			rst += line;
+		}
+
+		for(auto rp : app_context.replicators){
+			for (auto it = rp->conn_pool->ip_id_map.begin(); it != rp->conn_pool->ip_id_map.end(); ++it) {
+				std::string line = format_string("%p %s, state:%d, ref_count:%d, REPLICATING\n", it->second, it->second->connection_info.c_str(),
+					it->second->state, it->second->ref_count);
+				rst += line;
+			}
+
+		}
+	}
 	mg_send_head(nc, 200, rst.size(), "Content-Type: text/plain");
-	mg_send(nc, rst.c_str(), rst.length());
+	mg_send(nc, rst.c_str(), (int)rst.length());
+}
+
+void handle_stat_iocb_pool(struct mg_connection* nc, struct http_message* hm) {
+
+	std::string summary;
+	for (int i = 0; i < app_context.disps.size(); i++)
+	{
+		std::string rst = format_string("dispatcher %d remain %d\n", i, app_context.disps[i]->iocb_pool.remain());
+		summary += rst;
+	}
+
+	mg_send_head(nc, 200, summary.size(), "Content-Type: text/plain");
+	mg_send(nc, summary.c_str(), (int)summary.length());
 }
 
 void handle_get_snap_list(struct mg_connection *nc, struct http_message * hm) {
@@ -725,6 +896,20 @@ void handle_disp_io_stat(struct mg_connection* nc, struct http_message* hm)
 			d->stat.wr_bytes, d->stat.rd_bytes, d->stat.rep_wr_bytes);
 	}
 	reply.line = std::move(std::string(buf, len));
+	send_reply_to_client(reply, nc);
+
+}
+void handle_disp_io_stat_reset(struct mg_connection* nc, struct http_message* hm)
+{
+	PerfReply reply;
+	//DispatchStat total_stat={0};
+	for (auto d : app_context.disps)
+	{
+		d->sync_invoke([d]()->int {
+			d->stat.wr_cnt= d->stat.rd_cnt= d->stat.rep_wr_cnt=d->stat.wr_bytes= d->stat.rd_bytes= d->stat.rep_wr_bytes=0;
+			return 0;
+		});
+	}
 	send_reply_to_client(reply, nc);
 
 }

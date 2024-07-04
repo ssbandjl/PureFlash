@@ -3,3 +3,4 @@ cmake-build-debug
 /ninja-build
 .vscode
 build_deb
+.vs

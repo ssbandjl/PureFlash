@@ -25,7 +25,6 @@
 
 #include "pf_iotask.h"
 
-
 struct PfServerIocb;
 class PfFlashStore;
 struct lmt_entry;
@@ -60,19 +59,33 @@ public:
 	int disp_index;
 	BOOL is_timeout;
 	uint64_t received_time;
+	uint64_t received_time_hz;
+	uint64_t submit_rep_time;
+	int primary_rep_index;
+	uint64_t remote_rep1_cost_time;
+	uint64_t remote_rep1_submit_cost;
+	uint64_t remote_rep2_cost_time;
+	uint64_t remote_rep2_submit_cost;
+	uint64_t remote_rep1_reply_cost;
+	uint64_t remote_rep2_reply_cost;
+	uint64_t local_cost_time;
 	IoSubTask io_subtasks[3];
 
 	void inline setup_subtask(PfShard* s, PfOpCode opcode)
 	{
 		for (int i = 0; i < s->rep_count; i++) {
-			if(s->replicas[i]->status == HS_OK || s->replicas[i]->status == HS_RECOVERYING) {
-				subtasks[i]->complete_status=PfMessageStatus::MSG_STATUS_SUCCESS;
+			if (s->replicas[i] == NULL) {
+				continue;
+			}
+			if (s->replicas[i]->status == HS_OK || s->replicas[i]->status == HS_RECOVERYING) {
+				subtasks[i]->complete_status = PfMessageStatus::MSG_STATUS_SUCCESS;
 				subtasks[i]->opcode = opcode;  //subtask opcode will be OP_WRITE or OP_REPLICATE_WRITE
 				task_mask |= subtasks[i]->task_mask;
 				add_ref();
 			}
 		}
 	}
+	
 	void inline setup_one_subtask(PfShard* s, int rep_index, PfOpCode opcode)
 	{
 		subtasks[rep_index]->complete_status=PfMessageStatus::MSG_STATUS_SUCCESS;
@@ -83,8 +96,10 @@ public:
 
 	inline void add_ref() { __sync_fetch_and_add(&ref_count, 1); }
     inline void dec_ref();
+	void dec_ref_on_error();
 	inline void re_init();
-
+private:
+	void free_to_pool();
 };
 
 class PfDispatcher : public PfEventThread
@@ -99,11 +114,12 @@ public:
 
 	//PfDispatcher(const std::string &name);
 	int prepare_volume(PfVolume* vol);
+	int delete_volume(uint64_t vol_id);
 	inline int dispatch_io(PfServerIocb *iocb);
 	int dispatch_complete(SubTask*);
 	virtual int process_event(int event_type, int arg_i, void* arg_p, void* arg_q);
 
-	int init(int disp_idx);
+	int init(int disp_idx, uint16_t* p_id);
 	int init_mempools(int disp_idx);
 
 	int dispatch_write(PfServerIocb* iocb, PfVolume* vol, PfShard * s);
@@ -116,19 +132,10 @@ public:
 };
 
 
-inline void PfServerIocb::dec_ref() {
-    if (__sync_sub_and_fetch(&ref_count, 1) == 0) {
-		//S5LOG_DEBUG("Iocb released:%p", this);
-		PfConnection *conn_tmp = conn;
-		complete_meta_ver=0;
-	    complete_status = MSG_STATUS_SUCCESS;
-		vol_id=0;
-	    is_timeout = FALSE;
-	    task_mask = 0;
-		conn = NULL;
-        conn_tmp->dispatcher->iocb_pool.free(this);
-	    conn_tmp->dec_ref();
-    }
+ inline void PfServerIocb::dec_ref() {
+	if (__sync_sub_and_fetch(&ref_count, 1) == 0) {
+		free_to_pool();
+	}
 }
 
 inline void PfServerIocb::re_init()

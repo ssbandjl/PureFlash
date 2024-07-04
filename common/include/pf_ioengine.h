@@ -26,7 +26,6 @@ uint64_t fd_get_cap(int fd);
 class PfIoEngine
 {
 public:
-
 	std::string disk_name;
 	PfIoEngine(const char* name):disk_name(name){};
 	virtual int init()=0;
@@ -55,7 +54,7 @@ public:
 	int init();
 	int submit_io(struct IoSubTask* io, int64_t media_offset, int64_t media_len);
 	int submit_cow_io(struct CowTask* io, int64_t media_offset, int64_t media_len);
-	int submit_batch();
+	virtual int submit_batch();
 	std::thread aio_poller;
 	void polling_proc();
 

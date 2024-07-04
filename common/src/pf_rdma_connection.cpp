@@ -1,7 +1,13 @@
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <errno.h>
+
 //#include "rdma/rdma_cma.h"
 //#include "pf_main.h"
 //#include "pf_server.h"
@@ -15,6 +21,7 @@
 #define MAX_DISPATCHER_COUNT 10
 #define MAX_REPLICATOR_COUNT 10
 #define DEFAULT_MAX_MR		64
+static const uint32_t MAX_ACK_EVENT = 5000;
 pthread_mutex_t global_dev_lock;
 
 int on_addr_resolved(struct rdma_cm_id* id)
@@ -30,16 +37,15 @@ int on_addr_resolved(struct rdma_cm_id* id)
 
 
 #define MAX_WC_CNT 256
-static void *cq_poller_proc(void *arg_)
+static void *cq_event_proc(void *arg_)
 {
-	struct PfRdmaPoller *prp_poller = (struct PfRdmaPoller *)arg_;
+    struct PfRdmaPoller *prp_poller = (struct PfRdmaPoller *)arg_;
     //struct PfRdmaDevContext* dev_ctx = prp_poller->prp_dev_ctx;
     struct ibv_cq *cq;
     struct ibv_wc wc[MAX_WC_CNT];
     void *cq_ctx;
     int n;
     ibv_get_cq_event(prp_poller->prp_comp_channel, &cq, &cq_ctx);
-    ibv_ack_cq_events(cq, 1);
     ibv_req_notify_cq(cq, 0);
     while((n = ibv_poll_cq(cq, MAX_WC_CNT, wc)))
     {   
@@ -53,12 +59,88 @@ static void *cq_poller_proc(void *arg_)
             }
             struct PfRdmaConnection* conn = (struct PfRdmaConnection *)msg->conn;
             if(wc[i].status != IBV_WC_SUCCESS){
-            	S5LOG_WARN("conn:%p wc[%d].status != IBV_WC_SUCCESS, wc.status:%d, %s",conn, i, wc[i].status, ibv_wc_status_str(wc[i].status));
+            	S5LOG_WARN("conn:%p ref_cnt:%d wc[%d].status=%d(%s), bd.op=%d wc.op=%d, %d/%d wc",
+					conn, conn->ref_count, i, wc[i].status, ibv_wc_status_str(wc[i].status), msg->wr_op, wc[i].opcode, i,n);
             }
 			//S5LOG_INFO("cq poller get msg!!!!!!, opcode:%d", msg->wr_op);
             if (likely(conn->on_work_complete))
             {
                 conn->on_work_complete(msg, (WcStatus)wc[i].status, conn, NULL);
+            }
+        }
+        ibv_ack_cq_events(cq, n);
+    }
+    return NULL;
+}
+
+static void *cq_polling_proc(void *arg_)
+{
+    struct PfRdmaPoller *poller = (struct PfRdmaPoller *)arg_;
+    prctl(PR_SET_NAME, poller->name);
+    struct ibv_wc wc[MAX_WC_CNT];
+    uint64_t last_inactive = now_time_usec();
+    bool rearmed = false;
+    ibv_cq *cq = NULL;
+    void *ev_ctx;
+    int cq_events_that_need_ack = 0;
+    while (true) {
+        int ne = ibv_poll_cq(poller->prp_cq, MAX_WC_CNT, wc);
+        if (ne < 0) {
+            S5LOG_ERROR("failed to poll CQ");
+            return NULL;
+        } else if (ne > 0) {
+            for (int i = 0; i < ne; i++) {   
+                struct BufferDescriptor* msg = (struct BufferDescriptor*)wc[i].wr_id;
+                if (msg == NULL) {
+	    	    S5LOG_WARN("msg is NULL, continue");
+                    continue;
+                }
+                struct PfRdmaConnection* conn = (struct PfRdmaConnection *)msg->conn;
+                if (wc[i].status != IBV_WC_SUCCESS) {
+                	S5LOG_WARN("conn:%p ref_cnt:%d wc[%d].status=%d(%s), bd.op=%d wc.op=%d, %d/%d wc",
+	    				conn, conn->ref_count, i, wc[i].status, ibv_wc_status_str(wc[i].status),
+                                            msg->wr_op, wc[i].opcode, i, ne);
+                }
+                if (likely(conn->on_work_complete)) {
+                    conn->on_work_complete(msg, (WcStatus)wc[i].status, conn, NULL);
+                }
+            }           
+        } else {
+            // if polling time exceed 300ms, rearm event driver
+            if (now_time_usec() - last_inactive > 300000) {
+                if (!rearmed) {
+                    // clean up cq events after rearm notify ensure no new incoming event
+                    // arrived between polling and rearm
+                    int r = ibv_req_notify_cq(poller->prp_cq, 0);
+                    if (r < 0) {
+                      S5LOG_ERROR("failed to notify cq, err=%d ", r);
+                      return NULL;            
+                    }
+                    rearmed = true;
+                    continue;
+                }
+                struct pollfd channel_poll[1];
+                channel_poll[0].fd = poller->prp_comp_channel->fd;
+                channel_poll[0].events = POLLIN;
+                channel_poll[0].revents = 0;
+                int r = 0;
+                while (r == 0) {
+                    r = poll(channel_poll, 1, 100);                    
+                    if (r == -1) {
+                        S5LOG_ERROR("Poll error");
+                    } else if (r == 0) {
+                    }
+                }
+                if (r > 0) {
+                    ibv_get_cq_event(poller->prp_comp_channel, &cq, &ev_ctx);
+                    if (++cq_events_that_need_ack == MAX_ACK_EVENT) {
+                      S5LOG_INFO(" ack aq events.");
+                      ibv_ack_cq_events(cq, MAX_ACK_EVENT);
+                      cq_events_that_need_ack = 0;
+                    }
+                }
+                last_inactive = now_time_usec();
+                rearmed = false;
             }
         }
     }
@@ -67,11 +149,10 @@ static void *cq_poller_proc(void *arg_)
 
 static void on_rdma_cq_event(int fd, uint32_t events, void *arg)
 {
-    cq_poller_proc(arg);
+    cq_event_proc(arg);
 }
 
-
-static int init_rdmd_cq_poller(struct PfRdmaPoller *poller, int idx,
+static int init_rdma_cq_event_poller(struct PfRdmaPoller *poller, int idx,
 	struct PfRdmaDevContext *dev_ctx, struct ibv_context* rdma_ctx)
 {
 	poller->prp_comp_channel = ibv_create_comp_channel(rdma_ctx);
@@ -95,6 +176,56 @@ static int init_rdmd_cq_poller(struct PfRdmaPoller *poller, int idx,
 	return 0;
 }
 
+static int set_nonblock(int fd)
+{
+        int flags;      
+        if ((flags = fcntl(fd, F_GETFL)) < 0) {
+          S5LOG_ERROR("fcntl F_GETFL failed");
+          return -1;
+        }
+        if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+          S5LOG_ERROR("fcntl(F_SETFL,O_NONBLOCK) failed");
+          return -1;
+        }
+        return 0;
+}
+
+static int init_rdma_cq_polling_poller(struct PfRdmaPoller *poller, int idx,
+	struct PfRdmaDevContext *dev_ctx, struct ibv_context* rdma_ctx)
+{
+        poller->prp_comp_channel = ibv_create_comp_channel(rdma_ctx);
+        if (!poller->prp_comp_channel) {
+        	S5LOG_ERROR("failed to create comp channel");
+                return -1;
+        }
+        // set channel fd to noblock
+        int r = set_nonblock(poller->prp_comp_channel->fd);
+        if (r < 0) {
+              S5LOG_ERROR("failed set_nonblock, errno:%d", r);
+              return r;
+        }
+        safe_strcpy(poller->name, "rdma_cq_poller", sizeof(poller->name));
+	poller->prp_cq = ibv_create_cq(rdma_ctx, 512, NULL, poller->prp_comp_channel, 0);
+	if (!poller->prp_cq) {
+                S5LOG_ERROR("failed ibv_create_cq, errno:%d", errno);
+                return -1;
+	}
+        ibv_req_notify_cq(poller->prp_cq, 0);
+        poller->prp_dev_ctx = dev_ctx;
+	r = pthread_create(&poller->tid, NULL, cq_polling_proc, poller);
+	if (r != 0) {
+		poller->tid = 0;
+		S5LOG_ERROR("Failed to start poller thread, rc:%d", r);
+		return -r;
+
+	}
+	struct sched_param sp;
+	memset(&sp, 0, sizeof(sp));
+	sp.sched_priority = sched_get_priority_max(SCHED_FIFO);
+	pthread_setschedparam(poller->tid, SCHED_FIFO, &sp);
+	return 0;
+}
+
 struct PfRdmaDevContext* build_context(struct ibv_context* rdma_context)
 {
 	struct PfRdmaDevContext* rdma_dev_ctx;
@@ -102,8 +233,7 @@ struct PfRdmaDevContext* build_context(struct ibv_context* rdma_context)
 	int rc;
 	pthread_mutex_lock(&global_dev_lock);
 	rc = ibv_query_device(rdma_context, &device_attr);
-	if (rc)
-	{
+	if (rc) {
 		S5LOG_ERROR("ibv_query_device failed, rc:%d", rc);
 		pthread_mutex_unlock(&global_dev_lock);
 		return NULL;
@@ -112,10 +242,8 @@ struct PfRdmaDevContext* build_context(struct ibv_context* rdma_context)
 	S5LOG_INFO("RDMA device fw:%s vendor:%d  node_guid:0x%llX, dev:%s", device_attr.fw_ver,
 		device_attr.vendor_id, device_attr.node_guid, rdma_context->device->name);
 
-	for (int i=0; i < MAX_RDMA_DEVICE; i++)
-	{
-		if (g_app_ctx->dev_ctx[i] == NULL)
-		{
+	for (int i = 0; i < MAX_RDMA_DEVICE; i++) {
+		if (g_app_ctx->dev_ctx[i] == NULL) {
 			rdma_dev_ctx = new PfRdmaDevContext;
 			memcpy(&rdma_dev_ctx->dev_attr, &device_attr, sizeof(struct ibv_device_attr));
 			rdma_dev_ctx->ctx = rdma_context;
@@ -129,15 +257,22 @@ struct PfRdmaDevContext* build_context(struct ibv_context* rdma_context)
 			rdma_dev_ctx->next_server_cq_poller_idx = rdma_dev_ctx->client_cq_poller_cnt;
 			rdma_dev_ctx->next_client_cq_poller_idx = 0;
 			for (int pindex = 0; pindex < CQ_POLLER_COUNT; pindex++) {
-				init_rdmd_cq_poller(&rdma_dev_ctx->prdc_poller_ctx[pindex], pindex,
-					rdma_dev_ctx, rdma_context);
+                                if (g_app_ctx->cq_proc_model == POLLING) {
+				        init_rdma_cq_polling_poller(&rdma_dev_ctx->prdc_poller_ctx[pindex],
+                                                                        pindex, rdma_dev_ctx, rdma_context);                                       
+                                } else if (g_app_ctx->cq_proc_model == EVENT) {
+				        init_rdma_cq_event_poller(&rdma_dev_ctx->prdc_poller_ctx[pindex],
+                                                                        pindex, rdma_dev_ctx, rdma_context);
+                                } else {
+                                        S5LOG_ERROR("none rdma cq proc model is set");
+                                        return NULL;
+                                }
 			}
 			g_app_ctx->dev_ctx[i] = rdma_dev_ctx;
 			if (!g_app_ctx->rdma_client_only)
 				g_app_ctx->PfRdmaRegisterMr(rdma_dev_ctx);
 		}
-		if (g_app_ctx->dev_ctx[i]->ctx == rdma_context)
-		{
+		if (g_app_ctx->dev_ctx[i]->ctx == rdma_context) {
 			pthread_mutex_unlock(&global_dev_lock);
 			return g_app_ctx->dev_ctx[i];
 		}
@@ -184,13 +319,14 @@ int on_route_resolved(struct rdma_cm_id* id)
 	}
 	conn->qp = id->qp;
 	PfHandshakeMessage* hmsg = new PfHandshakeMessage;
-	hmsg->hsqsize = 128;
+	//TODO: when to release hmsg? 
+	hmsg->hsqsize = (int16_t)conn->io_depth;
 	hmsg->vol_id = conn->vol_id;
 	hmsg->protocol_ver = PROTOCOL_VER;
 	memset(&cm_params, 0, sizeof(cm_params));
 	int outstanding_read = conn->dev_ctx->dev_attr.max_qp_rd_atom;
-	if (outstanding_read > 128)
-		outstanding_read = 128;
+	if (outstanding_read > PF_MAX_IO_DEPTH)
+		outstanding_read = PF_MAX_IO_DEPTH;
 	cm_params.private_data = hmsg;
 	cm_params.private_data_len = sizeof(PfHandshakeMessage);
 	cm_params.responder_resources = (uint8_t)outstanding_read;
@@ -207,9 +343,12 @@ int on_route_resolved(struct rdma_cm_id* id)
 	return 0;
 }
 
-int on_connection(struct rdma_cm_id *id)
+int on_connection(struct rdma_cm_event* evt)
 {
-	struct PfRdmaConnection *conn = (struct PfRdmaConnection *)id->context;
+	struct PfRdmaConnection *conn = (struct PfRdmaConnection *)evt->id->context;
+	struct PfHandshakeMessage* hs_msg = (struct PfHandshakeMessage*)evt->param.conn.private_data;
+	S5LOG_INFO("Request iodepth:%d server return iodepth:%d", conn->io_depth, hs_msg->crqsize);
+	conn->io_depth = hs_msg->crqsize;
 	conn->state = CONN_OK;
 	return 0;
 }
@@ -227,26 +366,31 @@ void* process_event_channel(void *arg) {
 	while(rdma_get_cm_event(ec, &event) == 0) {
 		struct rdma_cm_event event_copy;
 		memcpy(&event_copy, event, sizeof(*event));
-		rdma_ack_cm_event(event);
 		switch(event_copy.event)
 		{
 			case RDMA_CM_EVENT_ADDR_RESOLVED:
-				S5LOG_DEBUG("get event RDMA_CM_EVENT_ADDR_RESOLVED\n");
+				rdma_ack_cm_event(event);
+				S5LOG_DEBUG("get event RDMA_CM_EVENT_ADDR_RESOLVED");
 				on_addr_resolved(event_copy.id);
 				break;
 			case RDMA_CM_EVENT_ROUTE_RESOLVED:
-				S5LOG_DEBUG("get event RDMA_CM_EVENT_ROUTE_RESOLVED\n");
+				rdma_ack_cm_event(event);
+				S5LOG_DEBUG("get event RDMA_CM_EVENT_ROUTE_RESOLVED");
 				on_route_resolved(event_copy.id);
 				break;
 			case RDMA_CM_EVENT_ESTABLISHED:
-				S5LOG_DEBUG("get event RDMA_CM_EVENT_ESTABLISHED\n");
-				on_connection(event_copy.id);
+				S5LOG_DEBUG("get event RDMA_CM_EVENT_ESTABLISHED");
+				on_connection(&event_copy);
+				rdma_ack_cm_event(event);
 				break;
 			case RDMA_CM_EVENT_DISCONNECTED:
-				S5LOG_DEBUG("get event RDMA_CM_EVENT_DISCONNECTED\n");
+				rdma_ack_cm_event(event);
+				S5LOG_DEBUG("get event RDMA_CM_EVENT_DISCONNECTED");
 				on_disconnect(event_copy.id);
 				break;
 			default:
+				S5LOG_DEBUG("unhandled  event %s", rdma_event_str(event_copy.event));
+				rdma_ack_cm_event(event);
 				break;
 		}
 	}
@@ -272,6 +416,7 @@ PfRdmaConnection* PfRdmaConnection::connect_to_server(const std::string ip, int 
 		S5LOG_ERROR("rdma_create_event_channel failed, errno:%d", errno);
 		goto failure_lay1;
 	}
+	conn->io_depth = io_depth;
 	rc = rdma_create_id(conn->ec, &conn->rdma_id, NULL, RDMA_PS_TCP);
 	if(rc)
 	{
@@ -315,10 +460,12 @@ PfRdmaConnection::~PfRdmaConnection(void)
 	S5LOG_DEBUG("connection:%p %s released", this, connection_info.c_str());
 
 	int rc = 0;
-	rdma_destroy_qp(rdma_id);
-	rc = rdma_destroy_id(rdma_id);
-	if (rc) {
-		S5LOG_ERROR("rdma_destroy_id  failed, rc:%d", rc);
+	if(rdma_id){
+		rdma_destroy_qp(rdma_id);
+		rc = rdma_destroy_id(rdma_id);
+		if (rc) {
+			S5LOG_ERROR("rdma_destroy_id  failed, rc:%d", rc);
+		}
 	}
 	rdma_id = NULL; //nobody should access this, assign value only for debug
 	state = CONN_CLOSED;
@@ -459,7 +606,7 @@ int PfRdmaConnection::do_close()
 	//struct rdma_cm_id* id = this->rdma_id;
 	//struct PfRdmaPoller *rdma_poller = &dev_ctx->prdc_poller_ctx[prc_cq_poller_idx];
 	rc = rdma_disconnect(rdma_id);
-	if(rc){
+	if (rc) {
 		//Returns 0 on success, or -1 on error. If an error occurs, errno will be set to indicate the failure reason.
 		rc = -errno;
 		S5LOG_ERROR("Failed to disconnect rdma connection:%p %s, rc:%d", this, connection_info.c_str(), rc);
