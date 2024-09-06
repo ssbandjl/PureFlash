@@ -3,6 +3,8 @@ git remote add upstream https://github.com/cocalele/PureFlash.git
 git fetch upstream
 git merge upstream/master
 git push origin master
+git push origin xb
+
 
 递归拉取子项目
 git submodule update --init --recursive
@@ -1828,3 +1830,30 @@ S5_OP_RPC_DELETE_BLOCK
 删除匹配到的entry
 static inline void delete_matched_entry
 
+pf_iov_submit
+
+
+
+
+io_uring:
+pfs/src/pf_iouring_engine.cpp
+PfFlashStore::init
+    ioengine = new PfIouringEngine(this) -> class PfIouringEngine : public PfIoEngine
+
+int PfIouringEngine::submit_io(struct IoSubTask* io, int64_t media_offset, int64_t media_len)
+    struct io_uring_sqe* sqe = io_uring_get_sqe(&uring)
+    io_uring_prep_read_fixed
+    or io_uring_prep_write_fixed
+    io_uring_submit(&uring)
+
+
+int PfIouringEngine::init()
+    niting IoUring engine for disk
+    io_uring_queue_init(MAX_AIO_DEPTH, &uring, 0)
+    io_uring_register_files(&uring, fds, 1)
+    io_uring_register_buffers(&uring, v, (unsigned int)S5ARRAY_SIZE(v))
+    iouring_poller = std::thread(&PfIouringEngine::polling_proc, this)
+        while (1)
+            io_uring_wait_cqe(r, &cqe)
+            io_uring_cqe_seen(r, cqe)
+            sem_post(&((CowTask*)t)->sem)
